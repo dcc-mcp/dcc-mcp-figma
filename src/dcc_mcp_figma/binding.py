@@ -7,10 +7,11 @@ import math
 import re
 import threading
 import time
+from concurrent.futures import TimeoutError as FutureTimeoutError
 from copy import deepcopy
 from uuid import uuid4
 
-from dcc_mcp_core import ReverseBridgeSession
+from dcc_mcp_core import BridgeTimeoutError, ReverseBridgeSession
 
 _METHODS = {"document.read", "node.read", "frame.create", "frame.update", "node.export"}
 _RESERVED = {"expected_plugin_instance", "page_id", "document_marker", "deadline_ms"}
@@ -176,7 +177,12 @@ class FigmaBinding:
                 result = record["session"].call(method, **params)
             except Exception as error:  # noqa: BLE001 - invalidate after any foreign transport failure.
                 self._invalidate(record)
-                code = "timeout" if type(error).__name__ == "BridgeTimeoutError" else "unavailable"
+                # Future timeouts are distinct from builtin TimeoutError before Python 3.11.
+                code = (
+                    "timeout"
+                    if isinstance(error, (BridgeTimeoutError, FutureTimeoutError, TimeoutError))
+                    else "unavailable"
+                )
                 raise BindingError(code, dispatched=True) from None
             try:
                 with self._lock:

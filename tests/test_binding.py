@@ -3,11 +3,12 @@
 import json
 import threading
 from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FutureTimeoutError
 from copy import deepcopy
 from types import SimpleNamespace
 
 import pytest
-from dcc_mcp_core import ReverseBridgeSession
+from dcc_mcp_core import BridgeTimeoutError, ReverseBridgeSession
 
 from dcc_mcp_figma.binding import BindingError, FigmaBinding
 
@@ -289,3 +290,29 @@ def test_timeout_closes_whole_binding_before_queued_mutation_can_be_polled():
             assert binding.poll(new_connection, timeout=0) is None
         finally:
             binding.close()
+
+
+@pytest.mark.parametrize("error_type", [FutureTimeoutError, BridgeTimeoutError])
+def test_public_timeout_kinds_are_classified_and_closed_without_replay(error_type):
+    class FailingSession:
+        def __init__(self, *, timeout):
+            self.calls = 0
+            self.closed = False
+
+        def call(self, method, **params):
+            self.calls += 1
+            raise error_type("synthetic-private-error-detail")
+
+        def close(self, reason):
+            self.closed = True
+
+    session = FailingSession(timeout=1)
+    binding = FigmaBinding(TOKEN, session_factory=lambda **_options: session)
+    connection = binding.connect(PLUGIN, document())["connection_id"]
+    with pytest.raises(BindingError, match="^timeout$") as caught:
+        binding.call(connection, "frame.create", {})
+    assert caught.value.dispatched is True
+    assert session.closed is True
+    assert session.calls == 1
+    assert binding.status()["state"] == "unavailable"
+    assert "private" not in str(caught.value)

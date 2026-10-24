@@ -12,6 +12,9 @@ import threading
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
+    commands.add_parser(
+        "runtime-preflight", help="Check the existing shared Runtime without installing or starting it."
+    )
     prepare = commands.add_parser("prepare-plugin", help="Prepare files using an existing Figma-assigned ID.")
     prepare.add_argument("--plugin-id", required=True)
     prepare.add_argument("--bridge-port", type=int, default=19061)
@@ -24,6 +27,12 @@ def main():
     serve.add_argument("--registry-dir")
     serve.add_argument("--token-env", default="DCC_MCP_FIGMA_TOKEN")
     args = parser.parse_args()
+    if args.command == "runtime-preflight":
+        from .runtime_preflight import runtime_preflight
+
+        report = runtime_preflight()
+        print(json.dumps(report))
+        return 0 if report["ready_for_launch"] else 2
     if args.command == "prepare-plugin":
         from .manifest import prepare_plugin
 
@@ -78,4 +87,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

@@ -1,0 +1,13 @@
+# dcc-mcp-figma
+
+Use the official Figma Plugin API for document operations and public dcc-mcp-core APIs for MCP and request correlation. Keep all source, identifiers, comments and documentation in English; user-facing conversation defaults to Simplified Chinese.
+
+This repository is an unreleased adapter. Never describe a fixture, source check, successful transport or undo boundary as native document persistence. Native acceptance requires an approved existing Figma host, a Figma-assigned plugin ID, approved loopback plugin access, real read/write/export, and same-file reopen readback.
+
+The user selected local development-plugin deployment following the 2026-10-24 review of Figma's Community guidelines; Community publication remains on hold. Preserve the implementation. Do not publish it to Community, delete it, contact Figma, conceal its MCP/AI functionality, or replace its architecture without further instruction. Local tests and the local-deployment choice do not establish private-use compliance. The user authorized local configuration and a corresponding organization repository; preserve private visibility explicitly. Persistent new credentials require specific confirmation. A continuing desktop denial must stop UI attempts rather than trigger a provider/context switch. See docs/PUBLICATION_AND_ROUTES.md for the retained official-MCP complementary assessment.
+
+Do not install or start the plugin, create credentials, expand OAuth or plugin permissions, or retry a denied desktop operation without explicit authorization. Do not auto-publish, merge or release. Do not edit the original design-bridge owner's checkout. Keep Cocos discovery separate.
+
+Use typed operations only: no arbitrary eval, remote script execution or REST canvas-write inventions. Bind every request and response to one explicitly paired plugin/document connection, reject stale responses, and invalidate the binding after an indeterminate timeout. A read-only connection must not create document markers. Keep tokens out of URLs, logs, document plugin data and Git.
+
+Run Python contract tests and the Node Plugin API harness. Label harness evidence as synthetic. Use the existing installed SDK/toolchain; do not install dependencies implicitly.

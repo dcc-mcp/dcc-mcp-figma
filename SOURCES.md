@@ -41,3 +41,15 @@ SDK. Tests use Node's built-in test runner and the optional official MCP client.
 - [Developer Terms](https://www.figma.com/legal/developer-terms/)
 - [Official remote MCP setup and supported-client boundary](https://developers.figma.com/docs/figma-mcp-server/remote-server-installation/)
 - [Official MCP access and rate limits](https://developers.figma.com/docs/figma-mcp-server/rate-limits-access/)
+
+## Shared external Python Runtime
+
+- [Canonical Runtime source reviewed at 3a54f666](https://github.com/dcc-mcp/dcc-mcp-runtime/tree/3a54f666c4283bab160dbab3ac90630c9ed39087)
+- [Public bootstrap and its process-ownership boundary](https://github.com/dcc-mcp/dcc-mcp-runtime/blob/3a54f666c4283bab160dbab3ac90630c9ed39087/src/dcc_mcp_runtime/bootstrap.py)
+- [Current handshake semantics](https://github.com/dcc-mcp/dcc-mcp-runtime/blob/3a54f666c4283bab160dbab3ac90630c9ed39087/src/dcc_mcp_runtime/handshake.py)
+- [Runtime manifest](https://github.com/dcc-mcp/dcc-mcp-runtime/blob/3a54f666c4283bab160dbab3ac90630c9ed39087/runtime/manifest.json)
+- [Version 0.2.0 release assets](https://github.com/dcc-mcp/dcc-mcp-runtime/releases/tag/v0.2.0)
+
+The Runtime package's Python requirement is separate from its proposed CPython
+payload ABI. A manifest handshake is not an interpreter/dependency probe,
+signature verification, process-launch contract or Figma permission.

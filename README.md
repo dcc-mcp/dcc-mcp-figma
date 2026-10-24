@@ -26,9 +26,42 @@ browser DOM and Figma API. They also exercise actual Core HTTP, the official
 MCP client, plugin HTTP polling and asynchronous export jobs. They do not start
 Figma, establish an account, install a plugin, or prove cloud persistence.
 
+## Shared Runtime first
+
+Figma has no embedded Python. The preferred deployment uses the existing
+**DCC-MCP Runtime** for this adapter's external Python service. The Figma plugin
+still executes official JavaScript Plugin API calls inside Figma. No Python
+interpreter is bundled, downloaded or installed by this repository.
+
+Run the read-only preflight from an existing development environment:
+
+```powershell
+$env:PYTHONPATH = (Resolve-Path ./src).Path
+python -m dcc_mcp_figma runtime-preflight
+```
+
+It delegates root selection to the installed Runtime's public `runtime_root()`
+helper, including its `DCC_MCP_RUNTIME_ROOT` override, then manifest negotiation
+to `require_adapter("figma")`.
+It never chooses an unrelated Python, creates an environment, installs packages,
+starts a process or changes pairing/network permissions. JSON output and exit
+code 2 explicitly report an unavailable managed launch. A successful manifest
+handshake alone still reports `ready_for_launch: false`.
+
+The reviewed Runtime 0.2.0 release contains package/manifest scaffolding but no
+published CPython payload or supported adapter-launch command. Its current
+manifest also lacks a Figma entry and uses a different Core requirement string
+that its equality-only handshake rejects. Managed deployment is blocked on those
+shared contracts; see [exact findings and owner handoff](docs/RUNTIME_INTEGRATION.md).
+The Python commands below remain explicit developer/test entry points, and do
+not establish a managed Runtime installation or launch.
+
 ## One-time native setup
 
-The first missing input is an existing **Figma-assigned development plugin ID**.
+First establish an authorized, exactly bound Figma host. With DCC-CUA, preserve
+the provider, runtime version, PID and HWND before any UI observation/input;
+stop if binding or desktop permission is unavailable. Then obtain an existing
+**Figma-assigned development plugin ID**.
 Create a local development plugin through Figma Desktop's
 **Plugins > Development > New plugin**, or reuse an existing development ID.
 Do not publish it. A plugin ID is not a token; never send credentials to chat.

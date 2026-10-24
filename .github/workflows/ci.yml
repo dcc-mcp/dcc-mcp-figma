@@ -1,0 +1,46 @@
+name: Adapter contracts
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contracts:
+    name: Contracts (${{ matrix.os }}, Python ${{ matrix.python }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            python: '3.10'
+          - os: ubuntu-latest
+            python: '3.12'
+          - os: windows-latest
+            python: '3.12'
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python }}
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+      - name: Install test and build dependencies
+        run: python -m pip install -e ".[test]" "ruff==0.16.9" "build==1.6.1" "hatchling==1.32.0"
+      - name: Python contracts and synthetic production-code integration
+        run: python -m pytest tests -q --basetemp=.test-temp
+      - name: Plugin runtime and UI synthetic contracts
+        run: node --test tests/plugin_runtime.test.cjs
+      - name: Lint and format
+        run: |
+          python -m ruff check src tests scripts
+          python -m ruff format --check src tests scripts
+      - name: Build the unpublished wheel
+        run: python -m build --wheel --no-isolation

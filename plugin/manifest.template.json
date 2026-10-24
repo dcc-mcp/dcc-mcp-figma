@@ -1,0 +1,13 @@
+{
+  "name": "DCC-MCP Figma",
+  "id": "__FIGMA_ASSIGNED_ID__",
+  "api": "1.0.0",
+  "main": "code.js",
+  "ui": "ui.html",
+  "editorType": ["figma"],
+  "documentAccess": "dynamic-page",
+  "networkAccess": {
+    "allowedDomains": ["none"],
+    "devAllowedDomains": ["http://127.0.0.1:19061"]
+  }
+}

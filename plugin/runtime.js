@@ -44,10 +44,25 @@ function createFigmaRuntime(figmaApi, options) {
     scope(context);
     return value;
   }
+  function solidFill(node) {
+    const fills = node.fills;
+    if (!Array.isArray(fills) || fills.length !== 1) return null;
+    const paint = fills[0];
+    if (!paint || paint.type !== "SOLID" || paint.visible === false ||
+        (paint.opacity !== undefined && paint.opacity !== 1) ||
+        (paint.blendMode !== undefined && paint.blendMode !== "NORMAL")) return null;
+    const color = paint.color;
+    if (!color || !["r", "g", "b"].every(key => typeof color[key] === "number" &&
+        Number.isFinite(color[key]) && color[key] >= 0 && color[key] <= 1)) return null;
+    // Match the typed 8-bit fill input in the document's RGB color profile.
+    return "#" + ["r", "g", "b"].map(key =>
+      Math.round(color[key] * 255).toString(16).padStart(2, "0")).join("").toUpperCase();
+  }
   function snapshot(node) {
     const number = key => typeof node[key] === "number" && Number.isFinite(node[key]) ? node[key] : null;
     return { id: node.id, type: node.type, name: node.name, x: number("x"), y: number("y"),
-      width: number("width"), height: number("height"), parent_id: node.parent ? node.parent.id : null };
+      width: number("width"), height: number("height"), parent_id: node.parent ? node.parent.id : null,
+      fill: solidFill(node) };
   }
   function boundNode(context, node) {
     scope(context);

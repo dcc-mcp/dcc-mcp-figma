@@ -139,6 +139,7 @@ test('synthetic: create, update, read and export use typed Plugin API methods', 
   assert.equal(created.data.name, 'Created frame');
   assert.equal(created.data.width, 320);
   assert.equal(created.data.height, 240);
+  assert.equal(created.data.fill, '#3366FF');
   assert.equal(h.marker(), INSTANCE);
   assert.equal(h.writes.filter((write) => write[0] === 'createFrame').length, 1);
   assert.deepEqual(h.writes.filter((write) => write[0] === 'setPluginData'),
@@ -160,6 +161,7 @@ test('synthetic: create, update, read and export use typed Plugin API methods', 
   assertDocument(read, h, INSTANCE);
   assert.equal(read.data.name, 'Updated frame');
   assert.equal(read.data.width, 480);
+  assert.equal(read.data.fill, '#FF0000');
   assert.equal(h.writes.filter((write) => write[0] === 'setPluginData').length, 1);
 
   const exported = await h.runtime.dispatch('node.export', h.params({ node_id: id, format: 'PNG' }));
@@ -537,6 +539,40 @@ test('synthetic: close invalidates future requests', async () => {
   h.runtime.close();
   assertError(await h.runtime.dispatch('document.read', h.params()), 'stale_instance');
   assert.deepEqual(h.writes, []);
+});
+
+test('synthetic: node fill snapshots are bounded document RGB values without writes', async (t) => {
+  const color = { r: 0, g: 170 / 255, b: 136 / 255 };
+  const solid = { type: 'SOLID', color };
+  const cases = [
+    ['opaque defaults', [solid], '#00AA88'],
+    ['explicit defaults', [{ ...solid, visible: true, opacity: 1, blendMode: 'NORMAL' }], '#00AA88'],
+    ['empty', [], null],
+    ['mixed', Symbol('mixed'), null],
+    ['multiple paints', [solid, solid], null],
+    ['invisible', [{ ...solid, visible: false }], null],
+    ['translucent', [{ ...solid, opacity: 0.5 }], null],
+    ['blend mode', [{ ...solid, blendMode: 'MULTIPLY' }], null],
+    ['gradient', [{ type: 'GRADIENT_LINEAR' }], null],
+    ['image', [{ type: 'IMAGE', get color() { throw new Error('must not read image color'); } }], null],
+    ['missing color', [{ type: 'SOLID' }], null],
+    ['nonfinite channel', [{ ...solid, color: { ...color, r: NaN } }], null],
+    ['negative channel', [{ ...solid, color: { ...color, r: -1 } }], null],
+    ['oversized channel', [{ ...solid, color: { ...color, r: 2 } }], null],
+    ['nonnumeric channel', [{ ...solid, color: { ...color, r: '0' } }], null],
+  ];
+  for (const [label, paints, expected] of cases) {
+    await t.test(label, async () => {
+      const h = createHarness();
+      h.frame.fills = paints;
+      h.writes.length = 0;
+      await h.runtime.initialize();
+      const read = await h.runtime.dispatch('node.read', h.params({ node_id: h.frame.id }));
+      assertDocument(read, h, null);
+      assert.equal(read.data.fill, expected);
+      assert.deepEqual(h.writes, []);
+    });
+  }
 });
 
 // Synthetic UI contract: this evaluates the shipped UI script with fake DOM,

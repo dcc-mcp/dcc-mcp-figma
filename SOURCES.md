@@ -20,6 +20,9 @@ also applies; API availability does not establish distribution permission.
   document data is scoped to the actual plugin ID.
 - [Node export](https://developers.figma.com/docs/plugins/api/properties/nodes-exportasync/):
   native image/vector bytes.
+- [Paint](https://developers.figma.com/docs/plugins/api/Paint/) and
+  [RGB color profiles](https://developers.figma.com/docs/plugins/api/RGB/):
+  bounded solid-paint readback, opacity/visibility and document-profile RGB values.
 - [Version history](https://developers.figma.com/docs/plugins/api/properties/figma-saveversionhistoryasync/):
   a newly saved version need not include every immediately preceding change.
 - [REST file endpoints](https://developers.figma.com/docs/rest-api/file-endpoints/):

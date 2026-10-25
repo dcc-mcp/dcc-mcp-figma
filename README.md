@@ -110,7 +110,12 @@ python scripts/native_trial.py --mcp-url http://127.0.0.1:<printed-port>/mcp --o
 ```
 
 The script discovers the live descriptors, reads the page, creates one frame,
-edits it, reads the same ID and exports actual PNG/SVG bytes. It follows the
+edits it, reads the same ID and exports actual PNG/SVG bytes. It verifies the
+requested name, dimensions and fill, including on reconnect; two identical
+responses with the wrong properties do not pass. Node snapshots expose `fill`
+as a normalized 8-bit hex value in the document's RGB profile only for one
+visible, opaque, normal-blend solid paint. Unsupported or mixed paints return
+`null`, rather than an invented color. It follows the
 server-owned `core_poll` route for asynchronous jobs and checks the inner result;
 `completed` alone is insufficient. It saves private receipts and hashes and
 never retries a mutation or silently selects another file.
@@ -170,6 +175,13 @@ python -m ruff check src tests scripts
 python -m ruff format --check src tests scripts
 python -m build --wheel --no-isolation
 ```
+
+The synthetic integration suite also executes `native_trial.py` with its real
+client discovery, invocation and Core async polling against a prepared plugin's
+generated `code.js` and `ui.html`. It checks output artifacts, reconnect readback,
+partial failure receipts, wrong-property rejection and refusal to overwrite an
+existing output directory. This fixture does not establish a native Figma host,
+actual file reopening or cloud persistence.
 
 Native Core 0.20.44 and Node 24 are the local validation baseline. Production
 Python sources retain Python 3.7 syntax; official MCP trial scripts require its

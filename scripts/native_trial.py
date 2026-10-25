@@ -16,10 +16,26 @@ from pathlib import Path
 
 from dcc_mcp_figma.client import TrialError, discover, invoke, local_endpoint
 
+_CREATED_FRAME = {"type": "FRAME", "name": "DCC-MCP Native Trial", "width": 320, "height": 180}
+_EDITED_FRAME = {
+    "type": "FRAME",
+    "name": "DCC-MCP Native Trial Edited",
+    "width": 360,
+    "height": 180,
+    "fill": "#00AA88",
+}
+
 
 def require(condition, message):
     if not condition:
         raise TrialError(message)
+
+
+def require_node(node, expected):
+    require(
+        isinstance(node, dict) and all(node.get(key) == value for key, value in expected.items()),
+        "The observed frame does not match the requested trial properties.",
+    )
 
 
 async def trial(args):
@@ -35,6 +51,7 @@ async def trial(args):
             previous.get("phase") == "write" and previous.get("native_effects") == "observed",
             "The previous receipt does not contain an observed native write phase.",
         )
+        require_node(previous.get("node"), _EDITED_FRAME)
     output = Path(args.output_dir)
     output.mkdir(parents=True, exist_ok=False)
     receipt = {"phase": args.phase, "native_effects": "not_completed", "persistence": "unverified"}
@@ -64,6 +81,8 @@ async def trial(args):
                             "The selected document/page marker does not match the previous trial.",
                         )
                     node_id = previous["node"]["id"]
+                    expected_node = {"id": node_id, **_EDITED_FRAME}
+                    receipt["expected_node"] = expected_node
                     receipt["stage"] = "reconnect_node_readback"
                     observed = await invoke(
                         session,
@@ -74,6 +93,7 @@ async def trial(args):
                             "node_id": node_id,
                         },
                     )
+                    require_node(observed["data"], expected_node)
                     require(
                         observed["data"] == previous["node"],
                         "The same node did not retain the expected state.",
@@ -102,6 +122,10 @@ async def trial(args):
                     )
                     node_id = created["data"]["id"]
                     receipt.update(created_node=created["data"], document=created["document"])
+                    receipt["stage"] = "verify_created_frame"
+                    require_node(created["data"], _CREATED_FRAME)
+                    expected_node = {"id": node_id, **_EDITED_FRAME}
+                    receipt["expected_node"] = expected_node
                     receipt["stage"] = "update_frame"
                     edited = await invoke(
                         session,
@@ -116,6 +140,8 @@ async def trial(args):
                         },
                     )
                     receipt["edited_node"] = edited["data"]
+                    receipt["stage"] = "verify_edited_frame"
+                    require_node(edited["data"], expected_node)
                     receipt["stage"] = "read_edited_node"
                     observed = await invoke(
                         session,
@@ -126,6 +152,7 @@ async def trial(args):
                             "node_id": node_id,
                         },
                     )
+                    require_node(observed["data"], expected_node)
                     require(observed["data"] == edited["data"], "Readback did not match the edited node.")
                     receipt.update(document=observed["document"], node=observed["data"], artifacts=[])
                     for format_name in ("PNG", "SVG"):

@@ -20,6 +20,13 @@ also applies; API availability does not establish distribution permission.
   document data is scoped to the actual plugin ID.
 - [Node export](https://developers.figma.com/docs/plugins/api/properties/nodes-exportasync/):
   native image/vector bytes.
+- [Resize](https://developers.figma.com/docs/plugins/api/properties/nodes-resize/),
+  [vector paths](https://developers.figma.com/docs/plugins/api/properties/VectorPath-data/),
+  [cross-axis alignment](https://developers.figma.com/docs/plugins/api/properties/nodes-counteraxisalignitems/)
+  and [bound variables](https://developers.figma.com/docs/plugins/api/properties/nodes-boundvariables/):
+  native dimension limits, quadratic-to-cubic normalization, baseline alignment
+  restrictions and per-corner radius aliases. Synthetic models do not replace
+  native observations of these contracts.
 - [Paint](https://developers.figma.com/docs/plugins/api/Paint/) and
   [RGB color profiles](https://developers.figma.com/docs/plugins/api/RGB/):
   bounded solid-paint readback, opacity/visibility and document-profile RGB values.

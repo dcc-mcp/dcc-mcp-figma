@@ -126,7 +126,12 @@ class PluginHttpBridge:
                 except Exception:  # noqa: BLE001 - never expose private callback or transport exceptions.
                     self._send(500, {"error": "bridge_unavailable"})
 
-        self._server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
+        class Server(ThreadingHTTPServer):
+            def service_actions(self):
+                # Reuse the listener loop; do not add a second watchdog/service.
+                owner.binding.expire_idle()
+
+        self._server = Server(("127.0.0.1", port), Handler)
         self._server.daemon_threads = True
         self.port = self._server.server_address[1]
 

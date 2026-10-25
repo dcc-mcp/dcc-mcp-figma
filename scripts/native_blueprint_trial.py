@@ -51,12 +51,51 @@ def require(condition, message="Observed blueprint properties do not match the r
         raise TrialError(message)
 
 
-def _number(actual, expected):
+def _number(actual, expected, *, absolute=1e-4):
     require(
         type(actual) in (int, float)
         and math.isfinite(actual)
-        and math.isclose(actual, expected, rel_tol=1e-6, abs_tol=1e-4)
+        and math.isclose(actual, expected, rel_tol=1e-6, abs_tol=absolute)
     )
+
+
+def _same_path(actual, expected):
+    """Compare supported geometry after Figma's documented quadratic-to-cubic normalization."""
+
+    def canonical(data):
+        tokens = normalize_path(data).split()
+        result, current, start = [], (0, 0), (0, 0)
+        arities = {"M": 2, "L": 2, "Q": 4, "C": 6, "Z": 0}
+        index = 0
+        while index < len(tokens):
+            command = tokens[index]
+            index += 1
+            size = arities[command]
+            values = [float(value) for value in tokens[index : index + size]]
+            index += size
+            if command == "Q":
+                control, end = values[:2], values[2:]
+                values = (
+                    [current[a] + 2 / 3 * (control[a] - current[a]) for a in (0, 1)]
+                    + [end[a] + 2 / 3 * (control[a] - end[a]) for a in (0, 1)]
+                    + end
+                )
+                command = "C"
+            if command == "Z":
+                current = start
+            else:
+                current = tuple(values[-2:])
+                if command == "M":
+                    start = current
+            result.append((command, values))
+        return result
+
+    left, right = canonical(actual), canonical(expected)
+    require(len(left) == len(right))
+    for (command, values), (other, expected_values) in zip(left, right):
+        require(command == other and len(values) == len(expected_values))
+        for actual_value, expected_value in zip(values, expected_values):
+            _number(actual_value, expected_value, absolute=0.001)
 
 
 def _operation(value):
@@ -307,11 +346,11 @@ def verify_readback(data, wire, application, operation):
         require(node.get("name") == name and node.get("visible") is effective["visible"])
         _number(node.get("opacity"), effective["opacity"])
         for axis in ("width", "height"):
-            if spec["type"] != "VECTOR" and _fixed_axis(inherited, axis):
+            if spec["type"] == "VECTOR" or _fixed_axis(inherited, axis):
                 expected = (
                     variable_specs[bindings[axis]]["value"] if axis in bindings else effective["bounds"][axis]
                 )
-                _number(node.get(axis), expected)
+                _number(node.get(axis), expected, absolute=0.001 if spec["type"] == "VECTOR" else 1e-4)
         if kind == "INSTANCE":
             require(node.get("main_component_id") == application["nodes"][spec["component_ref"]])
         if kind == "COMPONENT":
@@ -396,10 +435,8 @@ def verify_readback(data, wire, application, operation):
             paths = node.get("paths")
             require(isinstance(paths, list) and len(paths) == len(effective["paths"]))
             for actual, expected in zip(paths, effective["paths"]):
-                require(
-                    actual.get("windingRule") == expected["windingRule"]
-                    and normalize_path(actual.get("data")) == expected["data"]
-                )
+                require(actual.get("windingRule") == expected["windingRule"])
+                _same_path(actual.get("data"), expected["data"])
         child_specs = master["children"] if master else spec.get("children", [])
         child_ids = node.get("child_ids", [])
         require(len(child_ids) == len(child_specs))
@@ -606,7 +643,7 @@ async def trial(args):
     screens = {node["key"]: node for node in wire["node_trees"] if node["type"] == "FRAME"}
     require(set(screens) == set(_SCREENS), "Supply exactly the six desktop/mobile state screen roots.")
     previous = None
-    if args.phase == "reconnect-readback":
+    if args.phase in ("reconnect-readback", "reconnect-export"):
         require(args.evidence is not None, "Readback requires the completed write receipt.")
         previous = _load_json(args.evidence, _MAX_RECEIPT_BYTES)
         require(
@@ -635,7 +672,7 @@ async def trial(args):
         )
         _previous_artifacts(previous.get("artifacts"), screens, application)
     else:
-        require(args.phase == "write", "Use write or reconnect-readback phase.")
+        require(args.phase == "write", "Use write, reconnect-readback or reconnect-export phase.")
         operation = _operation(args.operation_id if args.operation_id is not None else uuid4().hex)
         application = None
     output = Path(args.output_dir)
@@ -722,7 +759,10 @@ async def trial(args):
                         "The same native IDs did not retain their observed typed structure.",
                     )
                     receipt["reconnect_readback"] = "passed"
-                else:
+                if previous is None or args.phase == "reconnect-export":
+                    receipt["export_observation"] = (
+                        "write_phase" if previous is None else "after_reconnect_readback"
+                    )
                     for screen_key in _SCREENS:
                         identifier = application["nodes"][screen_key]
                         for format_name in ("PNG", "SVG"):
@@ -788,8 +828,10 @@ def main():
     )
     parser.add_argument("--output-dir", required=True, help="A new private evidence directory.")
     parser.add_argument("--operation-id", help="Optional correlation ID, not a credential or authority.")
-    parser.add_argument("--phase", choices=("write", "reconnect-readback"), default="write")
-    parser.add_argument("--evidence", help="Completed write receipt for reconnect-readback.")
+    parser.add_argument(
+        "--phase", choices=("write", "reconnect-readback", "reconnect-export"), default="write"
+    )
+    parser.add_argument("--evidence", help="Completed write receipt for either reconnect phase.")
     args = parser.parse_args()
     try:
         result = asyncio.run(trial(args))

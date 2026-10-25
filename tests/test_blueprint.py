@@ -150,10 +150,34 @@ def test_standalone_component_annotation_projection_is_explicit():
     ]
 
 
-@pytest.mark.parametrize("value", [True, float("nan"), float("inf"), -1])
+@pytest.mark.parametrize("value", [True, float("nan"), float("inf"), -1, 0, 0.001, 0.009])
 def test_invalid_numeric_dimensions_reject_before_host_dispatch(value):
     wire = wire_design()
     wire["node_trees"][1]["bounds"]["width"] = value
+    with pytest.raises(BlueprintError):
+        validate_blueprint(wire)
+
+
+def test_figma_minimum_resize_dimension_is_accepted():
+    wire = wire_design()
+    wire["node_trees"][1]["bounds"]["width"] = 0.01
+    assert validate_blueprint(wire)["node_trees"][1]["bounds"]["width"] == 0.01
+
+
+@pytest.mark.parametrize("width,height", [(64, 8), (16, 16)])
+def test_vector_intrinsic_curve_extrema_must_match_declared_bounds(width, height):
+    wire = wire_design()
+    wire["node_trees"][1]["children"].append(
+        {
+            "key": "vector/curve",
+            "type": "VECTOR",
+            "name": "Curve",
+            "visible": True,
+            "opacity": 1,
+            "bounds": {"x": 0, "y": 0, "width": width, "height": height},
+            "paths": [{"windingRule": "NONZERO", "data": "M 0 0 Q 8 16 16 0"}],
+        }
+    )
     with pytest.raises(BlueprintError):
         validate_blueprint(wire)
 

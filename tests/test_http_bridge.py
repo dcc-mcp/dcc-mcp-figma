@@ -235,3 +235,22 @@ def test_pairing_token_is_absent_from_status_errors_and_logs(transport, capsys, 
     assert TOKEN not in json.dumps(value)
     assert TOKEN not in json.dumps(transport.binding.status())
     assert TOKEN not in captured.out + captured.err + caplog.text
+
+
+def test_listener_service_loop_expires_idle_peer_and_drops_readiness_without_requests():
+    now = [0.0]
+    states = []
+    binding = FigmaBinding(TOKEN, lease_clock=lambda: now[0])
+    binding.set_change_callback(lambda status: states.append(status["state"]))
+    bridge = PluginHttpBridge(binding, port=0)
+    try:
+        binding.connect(PLUGIN, document())
+        assert states[-1] == "paired"
+        now[0] = 30
+        bridge._server.service_actions()
+        assert states[-1] == "unavailable"
+        assert states.count("unavailable") == 1
+        bridge._server.service_actions()
+        assert states.count("unavailable") == 1
+    finally:
+        bridge.close()

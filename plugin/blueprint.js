@@ -138,15 +138,54 @@ function createBlueprintEngine(figmaApi, dependencies) {
     if (!choice(value.windingRule, ["NONZERO", "EVENODD"]) || !string(value.data, 128 * 1024, false)) invalid();
     const tokens = value.data.trim().split(/\s+/);
     const arities = { M: 2, L: 2, Q: 4, C: 6, Z: 0 };
+    const segments = [];
     if (tokens[0] !== "M") invalid();
     for (let index = 0; index < tokens.length;) {
       const command = tokens[index++];
       if (!own(arities, command) || index + arities[command] > tokens.length) invalid();
+      const values = [];
       for (let count = 0; count < arities[command]; count += 1) {
         const token = tokens[index++];
         if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(token) || !finite(Number(token), -1000000, 1000000)) invalid();
+        values.push(Number(token));
+      }
+      segments.push([command, values]);
+    }
+    return segments;
+  }
+  function pathBounds(segments) {
+    const points = [];
+    let current = [0, 0]; let start = current;
+    function roots(a, b, c) {
+      if (Math.abs(a) < 1e-12) return Math.abs(b) < 1e-12 ? [] : [-c / b];
+      const discriminant = b * b - 4 * a * c;
+      return discriminant < 0 ? [] : [(-b + Math.sqrt(discriminant)) / (2 * a), (-b - Math.sqrt(discriminant)) / (2 * a)];
+    }
+    for (const [command, values] of segments) {
+      if (command === "M") { current = values; start = current; points.push(current); }
+      else if (command === "L" || command === "Z") {
+        current = command === "L" ? values : start; points.push(current);
+      } else {
+        const p = [current];
+        for (let index = 0; index < values.length; index += 2) p.push(values.slice(index, index + 2));
+        const times = new Set([0, 1]);
+        for (const axis of [0, 1]) {
+          const [a, b, c, d] = p.map(point => point[axis]);
+          const denominator = a - 2 * b + c;
+          const candidates = command === "Q" ? (Math.abs(denominator) < 1e-12 ? [] : [(a - b) / denominator]) :
+            roots(3 * (-a + 3 * b - 3 * c + d), 6 * (a - 2 * b + c), 3 * (b - a));
+          for (const t of candidates) if (t > 0 && t < 1) times.add(t);
+        }
+        for (const t of times) points.push([0, 1].map(axis => command === "Q" ?
+          (1 - t) ** 2 * p[0][axis] + 2 * (1 - t) * t * p[1][axis] + t * t * p[2][axis] :
+          (1 - t) ** 3 * p[0][axis] + 3 * (1 - t) ** 2 * t * p[1][axis] +
+            3 * (1 - t) * t * t * p[2][axis] + t ** 3 * p[3][axis]));
+        current = p[p.length - 1];
       }
     }
+    if (!points.length) invalid();
+    return points.reduce((box, point) => [Math.min(box[0], point[0]), Math.min(box[1], point[1]),
+      Math.max(box[2], point[0]), Math.max(box[3], point[1])], [Infinity, Infinity, -Infinity, -Infinity]);
   }
   function layout(value) {
     fields(value, ["mode", "item_spacing", "padding", "primary_axis_sizing", "counter_axis_sizing", "primary_axis_align", "counter_axis_align"], []);
@@ -154,7 +193,8 @@ function createBlueprintEngine(figmaApi, dependencies) {
         !Array.isArray(value.padding) || value.padding.length !== 4 || !value.padding.every(number => finite(number, 0, 8192)) ||
         !choice(value.primary_axis_sizing, ["FIXED", "AUTO"]) || !choice(value.counter_axis_sizing, ["FIXED", "AUTO"]) ||
         !choice(value.primary_axis_align, ["MIN", "MAX", "CENTER", "SPACE_BETWEEN"]) ||
-        !choice(value.counter_axis_align, ["MIN", "MAX", "CENTER", "BASELINE"])) invalid();
+        !choice(value.counter_axis_align, ["MIN", "MAX", "CENTER", "BASELINE"]) ||
+        value.counter_axis_align === "BASELINE" && value.mode !== "HORIZONTAL") invalid();
     if (value.mode === "NONE" && (value.primary_axis_sizing !== "FIXED" || value.counter_axis_sizing !== "FIXED")) invalid();
   }
   function receipt(operationId, stage) {
@@ -232,7 +272,7 @@ function createBlueprintEngine(figmaApi, dependencies) {
       if (!nodeTypes.includes(node.type) || !string(node.name, 120, false) || typeof node.visible !== "boolean") invalid();
       fields(node.bounds, ["x", "y", "width", "height"], []);
       if (!finite(node.bounds.x, -1000000, 1000000) || !finite(node.bounds.y, -1000000, 1000000) ||
-          !finite(node.bounds.width, node.type === "VECTOR" ? 0 : 0.001, 8192) || !finite(node.bounds.height, node.type === "VECTOR" ? 0 : 0.001, 8192)) invalid();
+          !finite(node.bounds.width, node.type === "VECTOR" ? 0 : 0.01, 8192) || !finite(node.bounds.height, node.type === "VECTOR" ? 0 : 0.01, 8192)) invalid();
       if (own(node, "opacity") && !finite(node.opacity, 0, 1)) invalid();
       for (const name of ["fill", "stroke"]) if (own(node, name) && node[name] !== null) rgba(node[name]);
       if (own(node, "stroke_width") && !finite(node.stroke_width, 0, 128)) invalid();
@@ -257,7 +297,8 @@ function createBlueprintEngine(figmaApi, dependencies) {
               ["fill", "stroke"].includes(field) && (!own(node, field) || node[field] === null) ||
               field === "cornerRadius" && !choice(node.type, ["FRAME", "COMPONENT", "INSTANCE", "RECTANGLE"]) ||
               scalarRange && !finite(variable.value, scalarRange[0], scalarRange[1]) ||
-              ["width", "height"].includes(field) && node.type === "VECTOR" && node.bounds[field] === 0) invalid();
+              ["width", "height"].includes(field) && node.type === "VECTOR" &&
+                (node.bounds[field] === 0 || Math.abs(variable.value - node.bounds[field]) > 0.001)) invalid();
         }
       }
       if (node.type === "TEXT") {
@@ -281,7 +322,11 @@ function createBlueprintEngine(figmaApi, dependencies) {
         }
       } else if (node.type === "VECTOR") {
         if (!Array.isArray(node.paths) || node.paths.length === 0 || node.paths.length > 128) invalid();
-        for (const item of node.paths) { path(item); pathBytes += utf8Length(item.data); }
+        const boxes = [];
+        for (const item of node.paths) { boxes.push(pathBounds(path(item))); pathBytes += utf8Length(item.data); }
+        const box = boxes.reduce((result, b) => [Math.min(result[0], b[0]), Math.min(result[1], b[1]),
+          Math.max(result[2], b[2]), Math.max(result[3], b[3])], [Infinity, Infinity, -Infinity, -Infinity]);
+        if ([box[0], box[1], box[2] - box[0] - node.bounds.width, box[3] - box[1] - node.bounds.height].some(value => Math.abs(value) > 0.001)) invalid();
         if (pathBytes > 256 * 1024) invalid();
       } else if (node.type === "IMAGE") {
         if (!plan.assets.has(node.asset_ref) || node.image_fit !== "CONTAIN" || own(node, "fill")) invalid();

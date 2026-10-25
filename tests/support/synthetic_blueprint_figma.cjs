@@ -100,7 +100,7 @@ function createSyntheticBlueprintFigma({ instanceId = INSTANCE_ID, now = NOW, ma
     const methods = {
       resize(width, height) {
         if (type === 'TEXT') requireFont(node);
-        assert.ok(Number.isFinite(width) && width > 0 && Number.isFinite(height) && height > 0);
+        assert.ok(Number.isFinite(width) && width >= 0.01 && Number.isFinite(height) && height >= 0.01);
         return performWrite('node.resize', { node_id: state.id, width, height }, () => {
           state.values.width = width; state.values.height = height;
         });
@@ -119,7 +119,8 @@ function createSyntheticBlueprintFigma({ instanceId = INSTANCE_ID, now = NOW, ma
       setBoundVariable(field, variable) {
         assert.equal(variable.resolvedType, 'FLOAT');
         return performWrite('node.setBoundVariable', { node_id: state.id, field, variable_id: variable.id }, () => {
-          state.values.boundVariables[field] = { type: 'VARIABLE_ALIAS', id: variable.id };
+          const fields = field === 'cornerRadius' ? ['topLeftRadius', 'topRightRadius', 'bottomLeftRadius', 'bottomRightRadius'] : [field];
+          for (const name of fields) state.values.boundVariables[name] = { type: 'VARIABLE_ALIAS', id: variable.id };
           state.values[field] = variable.valuesByMode[collections.get(variable.variableCollectionId).defaultModeId];
         });
       },

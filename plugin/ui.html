@@ -104,7 +104,7 @@
         return response.status === 204 ? null : await response.json();
       } finally { clearTimeout(timeout); }
     }
-    async function stop(session, label, notify) {
+    async function stop(session, label) {
       if (!session || session.stopped) return;
       session.stopped = true;
       session.controller.abort();
@@ -116,11 +116,11 @@
       }
       const token = session.token;
       session.token = "";
-      if (notify && session.connectionId) {
+      if (session.connectionId) {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 3000);
         try {
-          await fetch(session.base + "/disconnect", { method: "POST", credentials: "omit", cache: "no-store",
+          await fetch(session.base + "/disconnect", { method: "POST", credentials: "omit", cache: "no-store", keepalive: true,
             signal: controller.signal,
             headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
             body: JSON.stringify({ connection_id: session.connectionId }) });
@@ -148,7 +148,7 @@
           await http(session, "/response", { connection_id: session.connectionId, id: request.id, result });
         }
       } catch (_) {
-        await stop(session, "Connection stopped. Review the adapter before connecting again.", false);
+        await stop(session, "Connection stopped. Review the adapter before connecting again.");
       }
     }
     form.addEventListener("submit", async event => {
@@ -157,8 +157,9 @@
       const port = Number(portInput.value);
       const token = tokenInput.value;
       tokenInput.value = "";
-      if (!Number.isInteger(port) || port < 1 || port > 65535 || !token || token.length > 1024) {
-        setStatus("Enter a valid local port and pairing token."); return;
+      if (!Number.isInteger(port) || port < 1 || port > 65535 || typeof token !== "string" ||
+          token.length < 32 || token.length > 256 || /[^\x21-\x7e]/.test(token)) {
+        setStatus("Enter a valid local port and a 32–256 character ASCII pairing token without spaces."); return;
       }
       connecting = true; connectButton.disabled = true; portInput.disabled = true;
       let session;
@@ -180,13 +181,13 @@
         setStatus("Connected to the current document. Requests are limited to this plugin session.");
         void poll(session);
       } catch (_) {
-        if (session) await stop(session, "Connection stopped. Check the local adapter and approved plugin access.", false);
+        if (session) await stop(session, "Connection stopped. Check the local adapter and approved plugin access.");
         else { connectButton.disabled = false; portInput.disabled = false; setStatus("Connection could not start."); }
       } finally { connecting = false; }
     });
-    disconnectButton.addEventListener("click", () => { void stop(activeSession, "Disconnected.", true); });
+    disconnectButton.addEventListener("click", () => { void stop(activeSession, "Disconnected."); });
     window.addEventListener("unload", () => {
-      if (activeSession) { activeSession.stopped = true; activeSession.token = ""; activeSession.controller.abort(); }
+      void stop(activeSession, "Disconnected.");
     });
   }());
   </script>

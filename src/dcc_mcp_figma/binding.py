@@ -25,6 +25,8 @@ _METHODS = {
     "design.blueprint.read",
 }
 _RESERVED = {"expected_plugin_instance", "page_id", "document_marker", "deadline_ms"}
+_IDLE_LEASE_SECONDS = 30.0
+_ACTIVE_LEASE_GRACE_SECONDS = 5.0
 _CODES = {
     "not_paired",
     "stale_connection",
@@ -77,10 +79,22 @@ class FigmaBinding:
     OAuth grant is created here. Connection IDs are correlation identifiers.
     """
 
-    def __init__(self, token, *, timeout=30.0, clock=time.time, session_factory=ReverseBridgeSession):
-        if not isinstance(token, str) or not 32 <= len(token) <= 256 or any(c.isspace() for c in token):
+    def __init__(
+        self,
+        token,
+        *,
+        timeout=30.0,
+        clock=time.time,
+        session_factory=ReverseBridgeSession,
+        lease_clock=time.monotonic,
+    ):
+        if (
+            not isinstance(token, str)
+            or not 32 <= len(token) <= 256
+            or any(not 33 <= ord(char) <= 126 for char in token)
+        ):
             raise ValueError(
-                "An operator-provided pairing token of 32 to 256 non-space characters is required."
+                "An operator-provided pairing token of 32 to 256 printable ASCII characters without spaces is required."
             )
         if (
             isinstance(timeout, bool)
@@ -92,6 +106,7 @@ class FigmaBinding:
         self._token = token
         self._timeout = timeout
         self._clock = clock
+        self._lease_clock = lease_clock
         self._session_factory = session_factory
         self._lock = threading.RLock()
         self._call_lock = threading.Lock()
@@ -113,6 +128,7 @@ class FigmaBinding:
             self._change_callback(self.status())
 
     def status(self):
+        self.expire_idle()
         with self._lock:
             record = self._record
             return {
@@ -127,6 +143,7 @@ class FigmaBinding:
         if not isinstance(plugin_instance, str) or not re.fullmatch(r"[A-Za-z0-9_-]{16,80}", plugin_instance):
             raise BindingError("invalid_binding")
         document = _document(document)
+        self.expire_idle()
         with self._lock:
             if self._record is not None:
                 raise BindingError("already_paired")
@@ -136,6 +153,8 @@ class FigmaBinding:
                 "document": document,
                 "session": self._session_factory(timeout=self._timeout),
                 "delivered": set(),
+                "lease_seen": self._lease_clock(),
+                "active_until": None,
             }
             self._state = "paired"
         self._notify()
@@ -143,20 +162,40 @@ class FigmaBinding:
 
     def _current(self, connection_id):
         record = self._record
+        if record is not None and self._lease_expired(record):
+            self._invalidate(record, idle_only=True)
+            record = self._record
         if record is None:
             raise BindingError("not_paired")
         if not isinstance(connection_id, str) or connection_id != record["id"]:
             raise BindingError("stale_connection")
         return record
 
-    def _invalidate(self, record, state="unavailable"):
+    def _lease_expired(self, record):
+        deadline = record["lease_seen"] + _IDLE_LEASE_SECONDS
+        if record["active_until"] is not None:
+            deadline = max(deadline, record["active_until"])
+        return self._lease_clock() >= deadline
+
+    def expire_idle(self):
+        """Expire a lost peer without shortening an admitted request's deadline.
+
+        Poll/response traffic renews the idle lease. An active call is protected
+        only for its existing timeout plus bounded transport grace, never forever.
+        """
         with self._lock:
-            if self._record is not record:
-                return
+            record = self._record
+        return bool(record is not None and self._invalidate(record, idle_only=True))
+
+    def _invalidate(self, record, state="unavailable", *, idle_only=False):
+        with self._lock:
+            if self._record is not record or idle_only and not self._lease_expired(record):
+                return False
             self._record = None
             self._state = state
             record["session"].close("Figma plugin connection ended.")
         self._notify()
+        return True
 
     def disconnect(self, connection_id):
         with self._lock:
@@ -185,9 +224,11 @@ class FigmaBinding:
             raise BindingError("invalid_arguments")
         if not self._call_lock.acquire(blocking=False):
             raise BindingError("busy")
+        record = None
         try:
             with self._lock:
                 record = self._current(connection_id)
+                record["active_until"] = self._lease_clock() + self._timeout + _ACTIVE_LEASE_GRACE_SECONDS
                 params = deepcopy(arguments)
                 params.update(
                     expected_plugin_instance=record["plugin_instance"],
@@ -239,11 +280,16 @@ class FigmaBinding:
                     error.code, dispatched=True, receipt=error.receipt or observed_receipt
                 ) from None
         finally:
+            with self._lock:
+                if record is not None and self._record is record:
+                    record["active_until"] = None
+                    record["lease_seen"] = self._lease_clock()
             self._call_lock.release()
 
     def poll(self, connection_id, *, timeout=0.5):
         with self._lock:
             record = self._current(connection_id)
+            record["lease_seen"] = self._lease_clock()
         request = record["session"].next_request(timeout=min(max(timeout, 0), 1.0))
         with self._lock:
             if self._record is not record:
@@ -266,4 +312,5 @@ class FigmaBinding:
             if not accepted:
                 self._invalidate(record)
                 raise BindingError("stale_response")
+            record["lease_seen"] = self._lease_clock()
         return True

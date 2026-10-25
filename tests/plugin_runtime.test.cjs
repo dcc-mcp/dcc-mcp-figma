@@ -589,7 +589,9 @@ function createSyntheticUi(request, options = {}) {
       addEventListener(type, handler) { events.set(`${id}:${type}`, handler); } });
   }
   elements.get('port').value = '19061';
-  elements.get('token').value = 'synthetic-ui-pairing-token';
+  const token = options.token === undefined ? 'synthetic-ui-pairing-token-contract-only-0001' : options.token;
+  elements.get('token').value = token;
+  const disconnectMode = options.disconnectMode;
   const posted = [];
   const fetched = [];
   const responses = [];
@@ -630,7 +632,14 @@ function createSyntheticUi(request, options = {}) {
         });
       }
       if (url.endsWith('/response')) { responses.push(body); return response(null); }
-      if (url.endsWith('/disconnect')) return response(null);
+      if (url.endsWith('/disconnect')) {
+        if (disconnectMode === 'fail') throw new Error('synthetic_disconnect_failure');
+        if (disconnectMode === 'hang') return new Promise((resolve, reject) => {
+          if (options.signal.aborted) reject(new Error('synthetic_abort'));
+          else options.signal.addEventListener('abort', () => reject(new Error('synthetic_abort')), { once: true });
+        });
+        return response(null);
+      }
       throw new Error('unexpected_synthetic_http_route');
     },
   });
@@ -639,8 +648,9 @@ function createSyntheticUi(request, options = {}) {
   new vm.Script(script, { filename: 'synthetic-ui-script.js' }).runInContext(context);
   const tick = () => new Promise((resolve) => setImmediate(resolve));
   const emit = (message, source = parent) => context.onmessage({ source, data: { pluginMessage: message } });
+  function submit() { return events.get('pair-form:submit')({ preventDefault() {} }); }
   async function start() {
-    const submitted = events.get('pair-form:submit')({ preventDefault() {} });
+    const submitted = submit();
     assert.equal(elements.get('token').value, '');
     assert.equal(posted[0].type, 'initialize');
     emit({ type: 'initialized', instance_id: 'synthetic-ui-instance', result: { ok: true,
@@ -661,7 +671,8 @@ function createSyntheticUi(request, options = {}) {
     }
     await tick();
   }
-  return { posted, fetched, responses, elements, emit, start, close, tick, advance, timers };
+  function unload() { events.get('window:unload')(); }
+  return { posted, fetched, responses, elements, emit, start, close, tick, advance, timers, submit, unload };
 }
 
 test('synthetic UI: Core JSON-RPC request and response categories remain correlated', async (t) => {
@@ -679,9 +690,9 @@ test('synthetic UI: Core JSON-RPC request and response categories remain correla
   h.emit({ type: 'response', instance_id: 'synthetic-ui-instance', request_id: 'initialize', result });
   await h.tick();
   assert.deepEqual(h.responses, [{ connection_id: 'synthetic-connection', id: 'initialize', result }]);
-  assert.equal(JSON.stringify(h.posted).includes('synthetic-ui-pairing-token'), false);
-  assert.equal(h.fetched.some((call) => call.url.includes('synthetic-ui-pairing-token')), false);
-  assert.equal(h.fetched.every((call) => call.options.headers.Authorization === 'Bearer synthetic-ui-pairing-token'), true);
+  assert.equal(JSON.stringify(h.posted).includes('synthetic-ui-pairing-token-contract-only-0001'), false);
+  assert.equal(h.fetched.some((call) => call.url.includes('synthetic-ui-pairing-token-contract-only-0001')), false);
+  assert.equal(h.fetched.every((call) => call.options.headers.Authorization === 'Bearer synthetic-ui-pairing-token-contract-only-0001'), true);
 });
 
 test('synthetic UI: malformed Core requests stop before dispatch', async (t) => {
@@ -748,4 +759,55 @@ test('synthetic UI: malformed or out-of-budget deadlines stop before plugin disp
       assert.equal(h.posted.filter(message => message.type === 'stop').length, 1);
     });
   }
+});
+
+test('synthetic UI: incompatible tokens fail before host messages or network requests', async (t) => {
+  for (const token of ['x'.repeat(31), 'x'.repeat(257), '界'.repeat(32), 'x'.repeat(31) + '\u0000',
+    'x'.repeat(31) + '\u007f', 'x'.repeat(32) + '\n']) {
+    await t.test(JSON.stringify(token), async () => {
+      const h = createSyntheticUi({}, { token });
+      await h.submit();
+      assert.equal(h.posted.length, 0);
+      assert.equal(h.fetched.length, 0);
+      assert.equal(h.elements.get('token').value, '');
+      assert.match(h.elements.get('status').textContent, /ASCII pairing token/);
+    });
+  }
+});
+
+test('synthetic UI: unload and repeated stop perform one bounded disconnect without replay', async (t) => {
+  const now = 1800000000000;
+  const request = { jsonrpc: '2.0', id: 21, method: 'design.blueprint.apply', params: { deadline_ms: now + 120000 } };
+  const h = createSyntheticUi(request, { fakeClock: true, now, disconnectMode: 'hang' });
+  t.after(h.close);
+  await h.start();
+  h.unload();
+  h.unload();
+  await h.tick();
+  const disconnects = h.fetched.filter(call => call.url.endsWith('/disconnect'));
+  assert.equal(disconnects.length, 1);
+  assert.equal(disconnects[0].options.keepalive, true);
+  assert.deepEqual(disconnects[0].body, { connection_id: 'synthetic-connection' });
+  assert.equal(disconnects[0].options.signal.aborted, false);
+  await h.advance(3000);
+  assert.equal(disconnects[0].options.signal.aborted, true);
+  await h.close();
+  assert.equal(h.fetched.filter(call => call.url.endsWith('/disconnect')).length, 1);
+  assert.equal(h.posted.filter(message => message.type === 'stop').length, 1);
+  assert.equal(h.posted.filter(message => message.type === 'request').length, 1);
+  assert.equal(h.responses.length, 0);
+});
+
+test('synthetic UI: failed disconnect is not retried after a host deadline', async (t) => {
+  const now = 1800000000000;
+  const request = { jsonrpc: '2.0', id: 22, method: 'design.blueprint.apply', params: { deadline_ms: now + 60000 } };
+  const h = createSyntheticUi(request, { fakeClock: true, now, disconnectMode: 'fail' });
+  t.after(h.close);
+  await h.start();
+  await h.advance(60000);
+  h.unload();
+  await h.close();
+  assert.equal(h.fetched.filter(call => call.url.endsWith('/disconnect')).length, 1);
+  assert.equal(h.posted.filter(message => message.type === 'stop').length, 1);
+  assert.equal(h.posted.filter(message => message.type === 'request').length, 1);
 });

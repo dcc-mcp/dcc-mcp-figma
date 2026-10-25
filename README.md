@@ -84,7 +84,8 @@ Once the existing host and permissions are approved:
 3. Have the operator approve the precise development network scope
    `http://127.0.0.1:19061` and supply an approved local pairing token through
    their secret provider as `DCC_MCP_FIGMA_TOKEN`. The token must contain 32 to
-   256 non-space characters. This project does not generate or persist it.
+   256 printable ASCII characters without spaces. This project does not
+   generate or persist it.
    New credentials and permission changes require explicit approval.
 4. Start the reviewed loopback adapter, then import/run the prepared manifest
    in Figma and pair through its UI:
@@ -150,6 +151,11 @@ guarantee that all immediately preceding edits are included.
 - The transport binds IPv4 loopback, checks Host and browser Origin, compares
   the pairing token in a header, limits bodies and never logs request payloads.
   HTTP success and pairing do not imply native acceptance.
+  Idle plugin connections expire after 30 seconds without an authenticated poll
+  or response. An active request is protected for its existing bounded timeout
+  plus a short transport grace; this does not extend its document deadline.
+  UI shutdown attempts one bounded disconnect, while the lease handles a lost
+  unload notification. Reconnection remains explicit and never replays work.
 - Core readiness rejects native calls before pairing. Core-owned job status
   remains queryable after a disconnect. Export and blueprint operations are
   asynchronous Core jobs. Their timeout hints do not extend the plugin deadline;

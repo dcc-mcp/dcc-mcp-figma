@@ -6,6 +6,7 @@ from copy import deepcopy
 from pathlib import Path
 
 import pytest
+from dcc_mcp_core import ReverseBridgeSession
 
 from dcc_mcp_figma.binding import BindingError, FigmaBinding
 from dcc_mcp_figma.receipts import partial_receipt
@@ -54,6 +55,54 @@ def test_receipt_is_a_copy_and_never_grants_replay_or_persistence():
     assert value["created_node_ids"] == ["3:4"]
     assert partial_receipt(value, None) is None
     assert partial_receipt(value, []) is None
+
+
+@pytest.mark.parametrize("reconnect", [False, True])
+@pytest.mark.parametrize("matching_operation", [False, True])
+def test_correlated_receipt_survives_connection_loss_after_core_response(reconnect, matching_operation):
+    document = {"name": "Fixture", "page_id": "1:2", "page_name": "Fixture", "marker": None}
+    current = []
+
+    class Session:
+        def __init__(self, **options):
+            self.core = ReverseBridgeSession(**options)
+
+        def __getattr__(self, name):
+            return getattr(self.core, name)
+
+        def call(self, *args, **kwargs):
+            result = self.core.call(*args, **kwargs)
+            # Deterministic handoff after Core accepted the correlated response,
+            # before FigmaBinding can inspect it. This does not call a real host.
+            binding.close()
+            if reconnect:
+                current.append(binding.connect("synthetic_plugin_instance_0002", document)["connection_id"])
+            return result
+
+    binding = FigmaBinding("synthetic-pairing-token-0000000000000001", timeout=2, session_factory=Session)
+    connection = binding.connect("synthetic_plugin_instance_0001", document)["connection_id"]
+    reported = receipt()
+    if not matching_operation:
+        reported["operation_id"] = "foreign_operation"
+    try:
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            future = pool.submit(
+                binding.call, connection, "design.blueprint.apply", {"operation_id": "synthetic_apply_001"}
+            )
+            request = binding.poll(connection, timeout=1)["request"]
+            binding.respond(
+                connection, request["id"], {"ok": False, "error": "host_error", "receipt": reported}
+            )
+            with pytest.raises(BindingError) as caught:
+                future.result(timeout=1)
+        assert caught.value.code == ("stale_connection" if reconnect else "not_paired")
+        assert caught.value.dispatched is True
+        assert caught.value.receipt == (receipt() if matching_operation else None)
+        if reconnect:
+            assert binding.status()["state"] == "paired"
+            assert binding.status()["connection_id"] == current[0]
+    finally:
+        binding.close()
 
 
 def test_actual_core_failure_closes_binding_and_keeps_correlated_known_ids():

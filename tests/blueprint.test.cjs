@@ -204,6 +204,8 @@ test('synthetic blueprint: tail schema/reference failures preflight all nodes be
     ['characters override on frame', bp => { bp.node_trees[0].children[2].overrides[0].target_key = 'button.default'; }],
     ['bad variable reference', bp => { bp.node_trees.at(-1).variable_bindings.fill = 'missing'; }],
     ['wrong variable type', bp => { bp.node_trees.at(-1).variable_bindings.fill = 'radius.control'; }],
+    ['bound fill without paint', bp => { delete bp.node_trees.at(-1).fill; }],
+    ['collection key collides with node', bp => { bp.variables.collection.key = bp.node_trees[0].key; }],
     ['duplicate logical key', bp => { bp.node_trees.at(-1).children.push(node('desktop.email', 'RECTANGLE')); }],
     ['FILL without parent AutoLayout', bp => { delete bp.node_trees[0].auto_layout; }],
     ['variant mismatch', bp => { bp.node_trees.at(-1).variant_properties.state = 'unknown'; }],

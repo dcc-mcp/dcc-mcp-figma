@@ -103,6 +103,10 @@ Figma's resize limit. Baseline cross-axis alignment requires horizontal Auto
 Layout. Readback compares equivalent quadratic/cubic geometry using absolute
 tolerance 0.001 and relative tolerance 1e-6 because Figma may normalize
 quadratic paths to cubic paths.
+Readback checks local x/y for explicitly positioned, non-cloned children in
+free layout and applicable absolute positioning. It does not compare generated
+root placement, Auto Layout flow or native instance/constraint projections to
+unprojected source coordinates; those still need native layout and visual evidence.
 
 ## Failure and evidence
 

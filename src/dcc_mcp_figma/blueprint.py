@@ -231,12 +231,20 @@ def _validate_blueprint(value):
     _exact(value, {"schema_version", "title", "assets", "variables", "component_sets", "node_trees"})
     _require(type(value["schema_version"]) is int and value["schema_version"] == 1)
     _text(value["title"])
+    all_keys = set()
+
+    def reserve(key):
+        _key(key)
+        _require(key not in all_keys)
+        all_keys.add(key)
+
     assets = value["assets"]
     _require(isinstance(assets, list) and len(assets) <= MAX_ASSETS)
     asset_keys = set()
     image_bytes = 0
     for asset in assets:
         image_bytes += _png_asset(asset)
+        reserve(asset["key"])
         _require(asset["key"] not in asset_keys)
         asset_keys.add(asset["key"])
     _require(image_bytes <= MAX_DECODED_IMAGE_BYTES, "blueprint_too_large")
@@ -244,8 +252,8 @@ def _validate_blueprint(value):
     _exact(variables, {"collection", "items"})
     collection = variables["collection"]
     _exact(collection, {"key", "name", "mode_key", "mode_name"})
-    _key(collection["key"])
-    _key(collection["mode_key"])
+    reserve(collection["key"])
+    reserve(collection["mode_key"])
     _text(collection["name"])
     _require(collection["mode_name"] == "Default")
     _require(isinstance(variables["items"], list) and len(variables["items"]) <= MAX_VARIABLES)
@@ -253,7 +261,7 @@ def _validate_blueprint(value):
     variable_values = {}
     for variable in variables["items"]:
         _exact(variable, {"key", "name", "type", "value"})
-        _key(variable["key"])
+        reserve(variable["key"])
         _text(variable["name"])
         _require(variable["key"] not in variable_types and variable["type"] in {"COLOR", "FLOAT"})
         variable_types[variable["key"]] = variable["type"]
@@ -270,7 +278,7 @@ def _validate_blueprint(value):
         _require(depth <= MAX_DEPTH, "depth_exceeded")
         _require(isinstance(n, dict) and n.get("type") in NODE_TYPES)
         _exact(n, _REQUIRED_COMMON, (_COMMON | _TYPE_FIELDS[n["type"]]) - _REQUIRED_COMMON)
-        _key(n["key"])
+        reserve(n["key"])
         _require(n["key"] not in nodes)
         nodes[n["key"]] = n
         _text(n["name"])
@@ -332,6 +340,8 @@ def _validate_blueprint(value):
                 ref in variable_types
                 and variable_types[ref] == ("COLOR" if prop in {"fill", "stroke"} else "FLOAT")
             )
+            if prop in {"fill", "stroke"}:
+                _require(n.get(prop) is not None)
             if prop in {"width", "height"}:
                 _number(variable_values[ref], 0.01, 8192)
                 _require(n["type"] != "VECTOR" or b[prop] != 0)
@@ -339,6 +349,7 @@ def _validate_blueprint(value):
             elif prop == "strokeWeight":
                 _number(variable_values[ref], 0, 128)
             elif prop == "cornerRadius":
+                _require(n["type"] in {"FRAME", "COMPONENT", "INSTANCE", "RECTANGLE"})
                 _number(variable_values[ref], 0, 4096)
         if n["type"] in {"FRAME", "COMPONENT"}:
             _require(isinstance(n.get("children"), list))
@@ -410,7 +421,7 @@ def _validate_blueprint(value):
     members = []
     for group in sets:
         _exact(group, {"key", "component_keys", "variant_properties"})
-        _key(group["key"])
+        reserve(group["key"])
         _require(group["key"] not in sets_by_key)
         sets_by_key[group["key"]] = group
         _require(isinstance(group["component_keys"], list) and len(group["component_keys"]) >= 2)

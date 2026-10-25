@@ -37,7 +37,7 @@ jobs:
       - name: Python contracts and synthetic production-code integration
         run: python -m pytest tests -q --basetemp=.test-temp
       - name: Plugin runtime and UI synthetic contracts
-        run: node --test tests/plugin_runtime.test.cjs
+        run: node --test tests/*.test.cjs
       - name: Lint and format
         run: |
           python -m ruff check src tests scripts

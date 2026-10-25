@@ -19,12 +19,16 @@ local deployment do not establish private-use compliance.
 | Create and modify a frame | `createFrame`, typed properties and `resize` | Not run |
 | Read back the same node IDs | `getNodeByIdAsync`, page and marker checks | Not run |
 | Export PNG/SVG | `exportAsync`, byte validation and SHA-256 | Not run |
+| Apply an editable design blueprint | Typed local components, text, layout, variables and geometry | Not run |
+| Read an owned blueprint subtree | Observed IDs and bounded native structure/resource snapshots | Not run |
 | Same-file close/reopen persistence | Reconnect readback script plus independent host evidence | Not run |
 
 The tests execute shipping UI/main/runtime code with an explicitly synthetic
 browser DOM and Figma API. They also exercise actual Core HTTP, the official
 MCP client, plugin HTTP polling and asynchronous export jobs. They do not start
 Figma, establish an account, install a plugin, or prove cloud persistence.
+See the [typed blueprint contract and automated design trial](docs/BLUEPRINT.md)
+for the editable login showcase path and its remaining native acceptance gates.
 
 ## Shared Runtime first
 
@@ -96,7 +100,7 @@ bridge port must match the prepared manifest and the UI's port field.
 The plugin requests no `currentuser`, `activeusers`, team-library, private or
 proposed API permission. Its release-domain list is `none`; only the exact
 development loopback endpoint is declared. Connection and reads do not write
-document data. The first explicit frame write adds a plugin-scoped document
+document data. The first explicit frame or blueprint write adds a plugin-scoped document
 marker containing a correlation ID, never the token. A marker is not a global
 file key, ownership proof or protection against copying a file.
 
@@ -137,7 +141,7 @@ guarantee that all immediately preceding edits are included.
 ## Runtime boundaries
 
 - Only typed Plugin API methods exist: page read, node read, frame creation,
-  frame update and PNG/SVG export. No canvas REST write endpoint or plugin eval
+  frame update, blueprint application/readback and PNG/SVG export. No canvas REST write endpoint or plugin eval
   is invented.
 - Each connection owns one Core `ReverseBridgeSession`. Requests pin plugin
   instance, current page, document marker and deadline. Responses must match a
@@ -147,7 +151,9 @@ guarantee that all immediately preceding edits are included.
   the pairing token in a header, limits bodies and never logs request payloads.
   HTTP success and pairing do not imply native acceptance.
 - Core readiness rejects native calls before pairing. Core-owned job status
-  remains queryable after a disconnect. Export is an asynchronous Core job.
+  remains queryable after a disconnect. Export and blueprint operations are
+  asynchronous Core jobs. Their timeout hints do not extend the plugin deadline;
+  use an explicit `serve --request-timeout 120` for the bounded blueprint trial.
 
 The public Core composition uses `ToolRegistry`, `McpHttpServer`,
 `ReadinessProbe` and `ReverseBridgeSession`. `DccServerBase` currently has no
@@ -156,11 +162,11 @@ server or introducing a second script executor.
 
 **Core surface limitation:** Core 0.20.44/0.20.47 also advertise their standard
 job/dynamic-tool/group builtins. Their public API has no switch to advertise
-only this adapter's six tools. This adapter registers no script executor and
+only this adapter's eight tools. This adapter registers no script executor and
 the trial client calls only its discovered native tools and Core job polling.
 Core consumes reserved `_meta` transport fields before some Python handlers;
 they never enter plugin parameters and grant no pairing or document authority.
-Do not describe the complete advertised Core surface as six typed tools. A
+Do not describe the complete advertised Core surface as eight typed tools. A
 public Core filter is a separate Core-owner concern, not an adapter-private
 monkeypatch or alternate permission path.
 
@@ -170,7 +176,7 @@ Use an existing development environment; no command installs tools implicitly:
 
 ```powershell
 python -m pytest tests -q --basetemp=<new-workspace-test-directory>
-node --test tests/plugin_runtime.test.cjs
+node --test tests/*.test.cjs
 python -m ruff check src tests scripts
 python -m ruff format --check src tests scripts
 python -m build --wheel --no-isolation
@@ -184,7 +190,10 @@ existing output directory. This fixture does not establish a native Figma host,
 actual file reopening or cloud persistence.
 
 Native Core 0.20.44 and Node 24 are the local validation baseline. Production
-Python sources retain Python 3.7 syntax; official MCP trial scripts require its
-Python 3.10+ SDK. No package, catalog install entry or public release is published.
+Python sources retain Python 3.7 syntax; this is not the Creator's native Python
+3.7 aggregate release acceptance. Official MCP trial scripts require its Python
+3.10+ SDK. No package, catalog install entry or public release is published.
+See the [first release gates](docs/FIRST_RELEASE_GATES.md) and
+[showcase contract review](docs/SHOWCASE_ACCEPTANCE.md).
 See [official sources](SOURCES.md) and retain verification outputs for the exact
 tested commit and remaining host/organization blockers.

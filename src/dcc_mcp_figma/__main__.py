@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import signal
 import threading
@@ -26,6 +27,9 @@ def main():
     serve.add_argument("--mcp-port", type=int, default=0)
     serve.add_argument("--registry-dir")
     serve.add_argument("--token-env", default="DCC_MCP_FIGMA_TOKEN")
+    serve.add_argument(
+        "--request-timeout", type=float, default=30.0, help="Plugin deadline in seconds, at most 120."
+    )
     args = parser.parse_args()
     if args.command == "runtime-preflight":
         from .runtime_preflight import runtime_preflight
@@ -53,8 +57,10 @@ def main():
         )
     if not 1024 <= args.bridge_port <= 65535 or not 0 <= args.mcp_port <= 65535:
         parser.error("Use a plugin port between 1024 and 65535 and a valid MCP port.")
+    if not math.isfinite(args.request_timeout) or not 0 < args.request_timeout <= 120:
+        parser.error("The request timeout must be finite and between zero and 120 seconds.")
     try:
-        binding = FigmaBinding(token)
+        binding = FigmaBinding(token, timeout=args.request_timeout)
     except ValueError:
         parser.error("The operator-provided pairing token must contain 32 to 256 non-space characters.")
     transport = PluginHttpBridge(binding, port=args.bridge_port)

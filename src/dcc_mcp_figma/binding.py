@@ -13,7 +13,17 @@ from uuid import uuid4
 
 from dcc_mcp_core import BridgeTimeoutError, ReverseBridgeSession
 
-_METHODS = {"document.read", "node.read", "frame.create", "frame.update", "node.export"}
+from .receipts import partial_receipt
+
+_METHODS = {
+    "document.read",
+    "node.read",
+    "frame.create",
+    "frame.update",
+    "node.export",
+    "design.blueprint.apply",
+    "design.blueprint.read",
+}
 _RESERVED = {"expected_plugin_instance", "page_id", "document_marker", "deadline_ms"}
 _CODES = {
     "not_paired",
@@ -37,9 +47,11 @@ _CODES = {
 class BindingError(Exception):
     """Fixed adapter failure without upstream exceptions or pairing material."""
 
-    def __init__(self, code, *, dispatched=False):
+    def __init__(self, code, *, dispatched=False, receipt=None):
         self.code = code if isinstance(code, str) and code in _CODES else "plugin_error"
         self.dispatched = dispatched
+        # Only the call boundary may supply an already validated receipt.
+        self.receipt = deepcopy(receipt)
         super().__init__(self.code)
 
 
@@ -152,6 +164,16 @@ class FigmaBinding:
         self._invalidate(record, "disconnected")
         return self.status()
 
+    def invalidate_response(self, connection_id):
+        """Stop only the connection whose dispatched response failed validation."""
+        with self._lock:
+            try:
+                record = self._current(connection_id)
+            except BindingError:
+                return False
+        self._invalidate(record)
+        return True
+
     def close(self):
         with self._lock:
             record = self._record
@@ -184,18 +206,23 @@ class FigmaBinding:
                     else "unavailable"
                 )
                 raise BindingError(code, dispatched=True) from None
+            observed_receipt = None
             try:
                 with self._lock:
                     self._current(connection_id)
                     if not isinstance(result, dict) or type(result.get("ok")) is not bool:
                         raise BindingError("invalid_response")
+                    if method == "design.blueprint.apply":
+                        data = result.get("data")
+                        candidate = data.get("receipt") if isinstance(data, dict) else result.get("receipt")
+                        observed_receipt = partial_receipt(candidate, arguments.get("operation_id"))
                     if result["ok"] is not True:
-                        raise BindingError(result.get("error", "plugin_error"))
+                        raise BindingError(result.get("error", "plugin_error"), receipt=observed_receipt)
                     document = _document(result.get("document"))
                     if document["page_id"] != record["document"]["page_id"] or "data" not in result:
                         raise BindingError("invalid_response")
                     previous = record["document"]["marker"]
-                    if method in {"frame.create", "frame.update"}:
+                    if method in {"frame.create", "frame.update", "design.blueprint.apply"}:
                         if (
                             document["marker"] is None
                             or previous is not None
@@ -208,7 +235,9 @@ class FigmaBinding:
                     return deepcopy(result)
             except BindingError as error:
                 self._invalidate(record)
-                raise BindingError(error.code, dispatched=True) from None
+                raise BindingError(
+                    error.code, dispatched=True, receipt=error.receipt or observed_receipt
+                ) from None
         finally:
             self._call_lock.release()
 

@@ -34,7 +34,9 @@ def prepare_plugin(plugin_id, bridge_port, output_dir):
         "devAllowedDomains": ["http://127.0.0.1:" + str(bridge_port)],
     }
     code = (
-        (sources / "runtime.js").read_text(encoding="utf-8")
+        (sources / "blueprint.js").read_text(encoding="utf-8")
+        + "\n"
+        + (sources / "runtime.js").read_text(encoding="utf-8")
         + "\n"
         + (sources / "main.js").read_text(encoding="utf-8")
     )

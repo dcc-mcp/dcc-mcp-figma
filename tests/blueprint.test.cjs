@@ -152,7 +152,8 @@ test('synthetic blueprint: typed native API chain creates editable resources and
   assert.equal(h.nodes.get(data.nodes['mobile.submit']).children[0].visible, false);
   assert.equal(master.fills[0].opacity, BLUE.a);
   assert.equal(master.fills[0].boundVariables.color.id, data.variables['color.brand']);
-  assert.equal(master.boundVariables.cornerRadius.id, data.variables['radius.control']);
+  for (const field of ['topLeftRadius', 'topRightRadius', 'bottomLeftRadius', 'bottomRightRadius'])
+    assert.equal(master.boundVariables[field].id, data.variables['radius.control']);
   assert.equal(h.nodes.get(data.nodes['desktop.submit']).layoutSizingHorizontal, 'FILL');
   assert.equal(h.images.size, 1);
   const imageFill = h.nodes.get(data.nodes['desktop.photo']).fills[0];
@@ -207,6 +208,9 @@ test('synthetic blueprint: tail schema/reference failures preflight all nodes be
     ['FILL without parent AutoLayout', bp => { delete bp.node_trees[0].auto_layout; }],
     ['variant mismatch', bp => { bp.node_trees.at(-1).variant_properties.state = 'unknown'; }],
     ['RGBA channel out of bounds', bp => { bp.node_trees.at(-1).fill.a = 1.1; }],
+    ['native resize below minimum', bp => { bp.node_trees.at(-1).bounds.width = 0.001; }],
+    ['vertical baseline alignment', bp => { bp.node_trees[0].auto_layout.mode = 'VERTICAL'; bp.node_trees[0].auto_layout.counter_axis_align = 'BASELINE'; }],
+    ['vector bounds differ from intrinsic path', bp => { bp.node_trees[0].children[4].bounds.width = 64; }],
     ['image URL instead of bytes', bp => { bp.assets[0].url = 'https://example.invalid/image.png'; }],
     ['wrong PNG hash', bp => { bp.assets[0].sha256 = '0'.repeat(64); }],
     ['non-PNG image bytes', bp => { bp.assets[0].data_base64 = Buffer.from('not png').toString('base64'); }],

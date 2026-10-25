@@ -81,6 +81,112 @@ def reply(harness, connection, request, marker=None, data=None):
     return result
 
 
+@pytest.mark.parametrize(
+    "token", ["x" * 31, "x" * 257, "界" * 32, "x" * 31 + "\x00", "x" * 31 + "\x7f", "x" * 32 + "\n"]
+)
+def test_header_incompatible_tokens_are_rejected_without_creating_a_session(token):
+    calls = []
+    with pytest.raises(ValueError, match="printable ASCII"):
+        FigmaBinding(token, session_factory=lambda **kwargs: calls.append(kwargs))
+    assert calls == []
+
+
+def test_printable_ascii_token_boundaries_are_supported():
+    for token in ("!" * 32, "~" * 256):
+        binding = FigmaBinding(token)
+        assert binding.authenticate("Bearer " + token)
+
+
+def test_cli_rejects_header_incompatible_token_before_creating_a_listener(monkeypatch, capsys):
+    from dcc_mcp_figma import __main__, http_bridge
+
+    def forbidden_listener(*_args, **_kwargs):
+        pytest.fail("An invalid pairing token must not create a listener.")
+
+    monkeypatch.setenv("SYNTHETIC_FIGMA_TOKEN", "界" * 32)
+    monkeypatch.setattr("sys.argv", ["dcc-mcp-figma", "serve", "--token-env", "SYNTHETIC_FIGMA_TOKEN"])
+    monkeypatch.setattr(http_bridge, "PluginHttpBridge", forbidden_listener)
+    with pytest.raises(SystemExit) as caught:
+        __main__.main()
+    assert caught.value.code == 2
+    error = capsys.readouterr().err
+    assert "printable ASCII" in error
+    assert "界" not in error
+
+
+def test_idle_lease_expires_without_host_calls_and_polling_renews_it():
+    now = [0.0]
+    sessions = []
+
+    def factory(**kwargs):
+        session = ObservedSession(**kwargs)
+        sessions.append(session)
+        return session
+
+    binding = FigmaBinding(TOKEN, lease_clock=lambda: now[0], session_factory=factory)
+    try:
+        connection = binding.connect(PLUGIN, document())["connection_id"]
+        now[0] = 29
+        assert binding.poll(connection, timeout=0) is None
+        now[0] = 58
+        assert binding.status()["state"] == "paired"
+        now[0] = 59
+        assert binding.expire_idle() is True
+        assert binding.status()["state"] == "unavailable"
+        assert sessions[0].calls == []
+        assert len(sessions[0].closed) == 1
+        assert binding.expire_idle() is False
+        with pytest.raises(BindingError, match="not_paired"):
+            binding.call(connection, "document.read", {})
+    finally:
+        binding.close()
+
+
+@pytest.mark.parametrize("complete", [True, False])
+def test_lease_preserves_a_legal_120_second_call_but_bounds_an_abandoned_call(complete):
+    now = [0.0]
+    sessions = []
+
+    def factory(**kwargs):
+        session = ObservedSession(**kwargs)
+        sessions.append(session)
+        return session
+
+    binding = FigmaBinding(
+        TOKEN, timeout=120, clock=lambda: 1000 + now[0], lease_clock=lambda: now[0], session_factory=factory
+    )
+    pool = ThreadPoolExecutor(max_workers=1)
+    try:
+        connection = binding.connect(PLUGIN, document())["connection_id"]
+        future = pool.submit(binding.call, connection, "document.read", {})
+        assert sessions[0].started.wait(timeout=1)
+        now[0] = 31
+        assert binding.expire_idle() is False
+        now[0] = 119
+        assert binding.status()["state"] == "paired"
+        if complete:
+            request = binding.poll(connection, timeout=0)["request"]
+            assert binding.respond(
+                connection, request["id"], {"ok": True, "document": document(), "data": {}}
+            )
+            assert future.result(timeout=1)["ok"] is True
+            now[0] = 148
+            assert binding.status()["state"] == "paired"
+            now[0] = 149
+            assert binding.expire_idle() is True
+        else:
+            now[0] = 125
+            assert binding.expire_idle() is True
+            with pytest.raises(BindingError, match="unavailable"):
+                future.result(timeout=1)
+        assert len(sessions[0].calls) == 1
+        assert len(sessions[0].closed) == 1
+        assert binding.status()["state"] == "unavailable"
+    finally:
+        binding.close()
+        pool.shutdown(wait=True)
+
+
 def test_pairing_is_read_only_and_status_is_a_defensive_copy(harness):
     original = document()
     status = harness.binding.connect(PLUGIN, original)

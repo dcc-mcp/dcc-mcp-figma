@@ -62,7 +62,9 @@ def main():
     try:
         binding = FigmaBinding(token, timeout=args.request_timeout)
     except ValueError:
-        parser.error("The operator-provided pairing token must contain 32 to 256 non-space characters.")
+        parser.error(
+            "The operator-provided pairing token must contain 32 to 256 printable ASCII characters without spaces."
+        )
     transport = PluginHttpBridge(binding, port=args.bridge_port)
     server = FigmaMcpServer(binding, port=args.mcp_port, registry_dir=args.registry_dir)
     stop = threading.Event()

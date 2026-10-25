@@ -86,6 +86,22 @@ save operation, undo boundary or connection change is presented as that evidence
 Exports retain the existing 1 MiB per-file limit; an oversized actual native
 export is a reported failure, not a successful truncated artifact.
 
+To obtain fresh exports on the new connection, use `--phase reconnect-export`
+with the same completed write receipt and a different new output directory.
+This phase first performs every reconnect-readback check, then calls the real
+export tool for all six screens as PNG and SVG. It never reapplies the blueprint
+or reuses the earlier export bytes. The receipt labels these exports
+`after_reconnect_readback`; native acceptance and persistence remain unverified.
+Only independent trusted Host evidence can establish that this connection
+actually follows saving, closing and reopening the same file.
+
+Vector paths are authoritative intrinsic geometry: their tight origin and
+Bezier-extrema bounds must match the declared bounds within 0.001. Zero-axis
+line vectors remain valid; other node dimensions must be at least 0.01, matching
+Figma's resize limit. Baseline cross-axis alignment requires horizontal Auto
+Layout. Readback compares equivalent quadratic/cubic geometry with numeric
+tolerance because Figma may normalize quadratic paths to cubic paths.
+
 ## Failure and evidence
 
 An operation ID is correlation data, not a credential, grant or exactly-once

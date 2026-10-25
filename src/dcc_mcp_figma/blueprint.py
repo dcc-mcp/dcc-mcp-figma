@@ -281,7 +281,7 @@ def _validate_blueprint(value):
         _number(b["x"])
         _number(b["y"])
         for axis in ("width", "height"):
-            _number(b[axis], 0 if n["type"] == "VECTOR" else 0.001, 8192)
+            _number(b[axis], 0 if n["type"] == "VECTOR" else 0.01, 8192)
         for paint in ("fill", "stroke"):
             if n.get(paint) is not None:
                 _rgba(n[paint])
@@ -322,6 +322,7 @@ def _validate_blueprint(value):
             _require(
                 a["primary_axis_align"] in {"MIN", "CENTER", "MAX", "SPACE_BETWEEN"}
                 and a["counter_axis_align"] in {"MIN", "CENTER", "MAX", "BASELINE"}
+                and (a["counter_axis_align"] != "BASELINE" or a["mode"] == "HORIZONTAL")
             )
         bindings = n.get("variable_bindings", {})
         _require(isinstance(bindings, dict) and set(bindings) <= _BINDINGS)
@@ -333,6 +334,7 @@ def _validate_blueprint(value):
             if prop in {"width", "height"}:
                 _number(variable_values[ref], 0.01, 8192)
                 _require(n["type"] != "VECTOR" or b[prop] != 0)
+                _require(n["type"] != "VECTOR" or abs(variable_values[ref] - b[prop]) <= 0.001)
             elif prop == "strokeWeight":
                 _number(variable_values[ref], 0, 128)
             elif prop == "cornerRadius":
@@ -376,12 +378,25 @@ def _validate_blueprint(value):
             if "stroke_join" in n:
                 _require(n["stroke_join"] in {"MITER", "ROUND", "BEVEL"})
             _require(isinstance(n.get("paths"), list) and 1 <= len(n["paths"]) <= 128)
+            path_bounds = []
             for p in n["paths"]:
                 _exact(p, {"windingRule", "data"})
                 _require(p["windingRule"] in {"NONZERO", "EVENODD"})
                 _path_segments(p["data"], normalized_only=True)
                 _require(normalize_path(p["data"]) == p["data"], "invalid_vector")
+                path_bounds.append(_bounds(_segments(p["data"])))
                 path_bytes += len(p["data"].encode("utf-8"))
+            left, top = min(p[0] for p in path_bounds), min(p[1] for p in path_bounds)
+            right, bottom = max(p[2] for p in path_bounds), max(p[3] for p in path_bounds)
+            _require(
+                all(
+                    abs(actual - expected) <= 0.001
+                    for actual, expected in zip(
+                        (left, top, right - left, bottom - top), (0, 0, b["width"], b["height"])
+                    )
+                ),
+                "invalid_vector",
+            )
         if n["type"] == "IMAGE":
             _require(n.get("asset_ref") in asset_keys and n.get("image_fit") == "CONTAIN")
 

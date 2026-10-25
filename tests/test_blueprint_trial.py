@@ -602,6 +602,72 @@ def test_synthetic_reconnect_reads_same_ids_without_reapplying_or_exporting(prep
     ]
 
 
+def test_readback_accepts_official_quadratic_to_cubic_normalization_only_with_matching_geometry(trial_module):
+    source = "M 0 0 Q 8 16 16 0"
+    trial_module._same_path("M 0 0 C 5.333333 10.666667 10.666667 10.666667 16 0", source)
+    with pytest.raises(TrialError):
+        trial_module._same_path("M 0 0 C 5.333333 11 10.666667 10.666667 16 0", source)
+
+
+def test_synthetic_reconnect_exports_fresh_bytes_only_after_same_id_readback(prepared, trial_module):
+    written = asyncio.run(trial_module.trial(_arguments(prepared)))
+    prepared.peer.connection = "synthetic_connection_two"
+    before = len(prepared.peer.calls)
+    result = asyncio.run(
+        trial_module.trial(
+            _arguments(
+                prepared,
+                "reconnected-exports",
+                phase="reconnect-export",
+                evidence=str(prepared.root / "write/receipt.json"),
+                operation=None,
+            )
+        )
+    )
+    assert result["reconnect_readback"] == "passed"
+    assert result["application"] == written["application"]
+    assert result["structure_sha256"] == written["structure_sha256"]
+    assert result["export_observation"] == "after_reconnect_readback"
+    assert result["persistence"] == result["native_acceptance"] == "unverified"
+    calls = [name for name, _arguments in prepared.peer.calls[before:]]
+    assert calls[:3] == ["figma_session__status", "figma_document__read", "figma_design__read_blueprint"]
+    assert calls.count("figma_design__apply_blueprint") == 0
+    assert calls.count("figma_nodes__export") == calls.count("jobs_get_status") == 12
+    assert len(result["artifacts"]) == 12
+    for artifact in result["artifacts"]:
+        raw = (prepared.root / "reconnected-exports" / artifact["file"]).read_bytes()
+        assert len(raw) == artifact["byte_length"]
+        assert hashlib.sha256(raw).hexdigest() == artifact["sha256"]
+
+
+@pytest.mark.parametrize("fault", ["same_connection", "changed_document", "changed_structure"])
+def test_reconnect_export_scope_or_structure_failure_never_exports_or_reapplies(
+    prepared, trial_module, fault
+):
+    asyncio.run(trial_module.trial(_arguments(prepared)))
+    if fault != "same_connection":
+        prepared.peer.connection = "synthetic_connection_two"
+    if fault == "changed_document":
+        prepared.peer.document["page_id"] = "2:0"
+    elif fault == "changed_structure":
+        prepared.peer.read_fault = lambda data: data["nodes"][0].update(width=123456)
+    before = len(prepared.peer.calls)
+    with pytest.raises(TrialError):
+        asyncio.run(
+            trial_module.trial(
+                _arguments(
+                    prepared,
+                    "reconnected-exports",
+                    phase="reconnect-export",
+                    evidence=str(prepared.root / "write/receipt.json"),
+                    operation=None,
+                )
+            )
+        )
+    calls = [name for name, _arguments in prepared.peer.calls[before:]]
+    assert "figma_design__apply_blueprint" not in calls and "figma_nodes__export" not in calls
+
+
 @pytest.mark.parametrize("field", ["width", "characters", "alias", "main_component", "mode", "truncated"])
 def test_wrong_observed_properties_stop_before_export_without_replay(prepared, trial_module, field):
     def fault(data):

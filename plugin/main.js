@@ -1,4 +1,4 @@
-/* Concatenate runtime.js before this file when preparing the plugin. */
+/* Concatenate blueprint.js and runtime.js before this file when preparing the plugin. */
 "use strict";
 
 (function () {

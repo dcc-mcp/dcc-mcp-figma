@@ -3,12 +3,32 @@
 from __future__ import annotations
 
 import json
+import os
 from uuid import UUID
 
 from dcc_mcp_core import McpHttpConfig, McpHttpServer, ReadinessProbe, ToolRegistry
 
 from . import __version__
 from .tools import TOOL_DEFINITIONS, FigmaTools
+
+# Core's registry reader trims strings and has no public metadata length cap.
+# These are adapter limits, not Core requirements; omit invalid values rather
+# than truncate identifiers or resolve paths against a different working dir.
+_LAUNCH_METADATA_FIELDS = (
+    ("DCC_MCP_START_OPERATION_ID", "dcc_mcp_operation_id", 128),
+    ("DCC_MCP_START_PROJECT", "dcc_mcp_project", 32768),
+)
+_ASYNC_TOOLS = {"figma_nodes__export", "figma_design__apply_blueprint", "figma_design__read_blueprint"}
+
+
+def _launch_metadata():
+    """Copy only Core's two startup hints; neither grants plugin authority."""
+    metadata = {}
+    for source, target, limit in _LAUNCH_METADATA_FIELDS:
+        value = os.environ.get(source, "").strip()
+        if value and len(value) <= limit and all(ord(char) >= 32 and ord(char) != 127 for char in value):
+            metadata[target] = value
+    return metadata
 
 
 class FigmaMcpServer:
@@ -40,6 +60,7 @@ class FigmaMcpServer:
             "dcc_mcp_instance_type": "standalone",
             "adapter": "dcc-mcp-figma",
             "native_acceptance": "unverified",
+            **_launch_metadata(),
         }
         if registry_dir is not None:
             self.config.registry_dir = str(registry_dir)
@@ -56,8 +77,10 @@ class FigmaMcpServer:
                 dcc="figma",
                 category="design",
                 version=__version__,
-                execution="async" if name == "figma_nodes__export" else "sync",
-                timeout_hint_secs=30 if name == "figma_nodes__export" else None,
+                execution="async" if name in _ASYNC_TOOLS else "sync",
+                timeout_hint_secs=(30 if name == "figma_nodes__export" else 120)
+                if name in _ASYNC_TOOLS
+                else None,
                 thread_affinity="any",
             )
             self.native_server.register_handler(name, self._handler(name), thread_affinity="any")
@@ -72,9 +95,9 @@ class FigmaMcpServer:
                     parameters = json.loads(parameters)
                 except ValueError:
                     parameters = None
-            if isinstance(parameters, dict) and name == "figma_nodes__export":
+            if isinstance(parameters, dict) and name in _ASYNC_TOOLS:
                 metadata = parameters.get("_meta")
-                if self._core_export_metadata(metadata):
+                if self._core_job_metadata(metadata):
                     # Core injects this correlation field after async admission. It grants no authority.
                     parameters = dict(parameters)
                     parameters.pop("_meta")
@@ -83,7 +106,7 @@ class FigmaMcpServer:
         return invoke
 
     @staticmethod
-    def _core_export_metadata(metadata):
+    def _core_job_metadata(metadata):
         if not isinstance(metadata, dict) or set(metadata) != {"dcc"}:
             return False
         dcc = metadata["dcc"]

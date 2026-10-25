@@ -11,6 +11,7 @@ function createFigmaRuntime(figmaApi, options) {
   let active = true;
   let initialized = false;
   let knownMarker = null;
+  let blueprintEngine = null;
 
   class RuntimeFailure extends Error {
     constructor(code) {
@@ -96,6 +97,17 @@ function createFigmaRuntime(figmaApi, options) {
       fail("invalid_arguments");
     }
   }
+  function designEngine() {
+    if (!blueprintEngine) {
+      const factory = typeof createBlueprintEngine === "function" ? createBlueprintEngine :
+        (typeof require === "function" ? require("./blueprint.js").createBlueprintEngine : null);
+      if (typeof factory !== "function") fail("host_error");
+      blueprintEngine = factory(figmaApi, {
+        scope, guardedAwait, ensureMarker, boundNode, lookup, snapshot, fail, info,
+      });
+    }
+    return blueprintEngine;
+  }
   function validate(method, params) {
     const common = ["expected_plugin_instance", "page_id", "document_marker", "deadline_ms"];
     const editable = ["name", "width", "height", "x", "y", "fill"];
@@ -105,6 +117,12 @@ function createFigmaRuntime(figmaApi, options) {
     else if (method === "frame.update") {
       fields(params, common.concat("node_id"), editable);
       if (!editable.some(key => own(params, key))) fail("invalid_arguments");
+    } else if (method === "design.blueprint.apply") {
+      fields(params, common.concat(["operation_id", "blueprint"]), []);
+      designEngine().validate(method, params);
+    } else if (method === "design.blueprint.read") {
+      fields(params, common.concat(["operation_id", "root_node_id"]), ["limit"]);
+      designEngine().validate(method, params);
     } else if (method === "node.export") fields(params, common.concat(["node_id", "format"]), []);
     else fail("unsupported_method");
     if (!text(params.expected_plugin_instance, 128) || !text(params.page_id, 200) ||
@@ -145,8 +163,10 @@ function createFigmaRuntime(figmaApi, options) {
     boundNode(context, node);
     return snapshot(node);
   }
-  function errorResult(error) {
-    return { ok: false, error: error instanceof RuntimeFailure ? error.code : "host_error" };
+  function errorResult(error, withReceipt) {
+    const result = { ok: false, error: error instanceof RuntimeFailure ? error.code : "host_error" };
+    if (withReceipt && error && error.receipt) result.receipt = error.receipt;
+    return result;
   }
   async function initialize() {
     try {
@@ -160,6 +180,8 @@ function createFigmaRuntime(figmaApi, options) {
     } catch (error) { return errorResult(error); }
   }
   async function dispatch(method, params) {
+    let observedReceipt = null;
+    let applied = false;
     try {
       const context = validate(method, params);
       await guardedAwait(context, () => page.loadAsync());
@@ -185,6 +207,12 @@ function createFigmaRuntime(figmaApi, options) {
              !dimension(own(params, "height") ? params.height : node.height))) fail("invalid_arguments");
         ensureMarker(context);
         data = updateFrame(context, node, params);
+      } else if (method === "design.blueprint.apply") {
+        applied = true;
+        data = await designEngine().apply(context, params);
+        observedReceipt = data.receipt;
+      } else if (method === "design.blueprint.read") {
+        data = await designEngine().read(context, params);
       } else {
         const node = await lookup(context, params.node_id);
         if (node.type !== "FRAME") fail("unsupported_node");
@@ -201,7 +229,13 @@ function createFigmaRuntime(figmaApi, options) {
       }
       scope(context);
       return { ok: true, document: info(), data };
-    } catch (error) { return errorResult(error); }
+    } catch (error) {
+      const result = errorResult(error, applied);
+      if (method === "design.blueprint.apply" && observedReceipt && !result.receipt) {
+        result.receipt = observedReceipt;
+      }
+      return result;
+    }
   }
   function close() { active = false; initialized = false; }
   return { initialize, dispatch, close };

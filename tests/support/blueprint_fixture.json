@@ -1,0 +1,573 @@
+{
+  "schema_version": 1,
+  "title": "Synthetic editable design fixture",
+  "assets": [],
+  "variables": {
+    "collection": {
+      "key": "variables/login",
+      "mode_key": "mode/default",
+      "mode_name": "Default",
+      "name": "variables/login"
+    },
+    "items": [
+      {
+        "key": "variable/workspace/night",
+        "name": "workspace/night",
+        "type": "COLOR",
+        "value": {
+          "a": 1,
+          "b": 0.27058823529411763,
+          "g": 0.12156862745098039,
+          "r": 0.043137254901960784
+        }
+      },
+      {
+        "key": "variable/workspace/abyss",
+        "name": "workspace/abyss",
+        "type": "COLOR",
+        "value": {
+          "a": 1,
+          "b": 0.1843137254901961,
+          "g": 0.08627450980392157,
+          "r": 0.027450980392156862
+        }
+      },
+      {
+        "key": "variable/workspace/blueprint",
+        "name": "workspace/blueprint",
+        "type": "COLOR",
+        "value": {
+          "a": 1,
+          "b": 0.4470588235294118,
+          "g": 0.23137254901960785,
+          "r": 0.0784313725490196
+        }
+      },
+      {
+        "key": "variable/workspace/glass",
+        "name": "workspace/glass",
+        "type": "COLOR",
+        "value": {
+          "a": 1,
+          "b": 0.5372549019607843,
+          "g": 0.2901960784313726,
+          "r": 0.08627450980392157
+        }
+      },
+      {
+        "key": "variable/workspace/grid",
+        "name": "workspace/grid",
+        "type": "COLOR",
+        "value": {
+          "a": 1,
+          "b": 0.5137254901960784,
+          "g": 0.3058823529411765,
+          "r": 0.1411764705882353
+        }
+      },
+      {
+        "key": "variable/workspace/wire",
+        "name": "workspace/wire",
+        "type": "COLOR",
+        "value": {
+          "a": 1,
+          "b": 0.9607843137254902,
+          "g": 0.7176470588235294,
+          "r": 0.4627450980392157
+        }
+      },
+      {
+        "key": "variable/signal/ice",
+        "name": "signal/ice",
+        "type": "COLOR",
+        "value": {
+          "a": 1,
+          "b": 1.0,
+          "g": 0.9686274509803922,
+          "r": 0.9254901960784314
+        }
+      },
+      {
+        "key": "variable/signal/cyan",
+        "name": "signal/cyan",
+        "type": "COLOR",
+        "value": {
+          "a": 1,
+          "b": 1.0,
+          "g": 0.8745098039215686,
+          "r": 0.2901960784313726
+        }
+      },
+      {
+        "key": "variable/signal/blue",
+        "name": "signal/blue",
+        "type": "COLOR",
+        "value": {
+          "a": 1,
+          "b": 0.9686274509803922,
+          "g": 0.39215686274509803,
+          "r": 0.027450980392156862
+        }
+      },
+      {
+        "key": "variable/canvas/ice",
+        "name": "canvas/ice",
+        "type": "COLOR",
+        "value": {
+          "a": 1,
+          "b": 0.996078431372549,
+          "g": 0.9803921568627451,
+          "r": 0.9686274509803922
+        }
+      },
+      {
+        "key": "variable/canvas/white",
+        "name": "canvas/white",
+        "type": "COLOR",
+        "value": {
+          "a": 1,
+          "b": 1.0,
+          "g": 1.0,
+          "r": 1.0
+        }
+      },
+      {
+        "key": "variable/ink/primary",
+        "name": "ink/primary",
+        "type": "COLOR",
+        "value": {
+          "a": 1,
+          "b": 0.24313725490196078,
+          "g": 0.11372549019607843,
+          "r": 0.043137254901960784
+        }
+      },
+      {
+        "key": "variable/ink/secondary",
+        "name": "ink/secondary",
+        "type": "COLOR",
+        "value": {
+          "a": 1,
+          "b": 0.5647058823529412,
+          "g": 0.43137254901960786,
+          "r": 0.34509803921568627
+        }
+      },
+      {
+        "key": "variable/ink/tertiary",
+        "name": "ink/tertiary",
+        "type": "COLOR",
+        "value": {
+          "a": 1,
+          "b": 0.6901960784313725,
+          "g": 0.6039215686274509,
+          "r": 0.5450980392156862
+        }
+      },
+      {
+        "key": "variable/control/inset",
+        "name": "control/inset",
+        "type": "COLOR",
+        "value": {
+          "a": 1,
+          "b": 0.9882352941176471,
+          "g": 0.9647058823529412,
+          "r": 0.9490196078431372
+        }
+      },
+      {
+        "key": "variable/control/border",
+        "name": "control/border",
+        "type": "COLOR",
+        "value": {
+          "a": 1,
+          "b": 0.9254901960784314,
+          "g": 0.8470588235294118,
+          "r": 0.788235294117647
+        }
+      },
+      {
+        "key": "variable/control/disabled",
+        "name": "control/disabled",
+        "type": "COLOR",
+        "value": {
+          "a": 1,
+          "b": 0.9725490196078431,
+          "g": 0.9411764705882353,
+          "r": 0.9176470588235294
+        }
+      },
+      {
+        "key": "variable/control/disabled-action",
+        "name": "control/disabled-action",
+        "type": "COLOR",
+        "value": {
+          "a": 1,
+          "b": 0.8117647058823529,
+          "g": 0.5882352941176471,
+          "r": 0.4588235294117647
+        }
+      },
+      {
+        "key": "variable/status/error",
+        "name": "status/error",
+        "type": "COLOR",
+        "value": {
+          "a": 1,
+          "b": 0.3058823529411765,
+          "g": 0.2196078431372549,
+          "r": 0.7725490196078432
+        }
+      },
+      {
+        "key": "variable/status/error-surface",
+        "name": "status/error-surface",
+        "type": "COLOR",
+        "value": {
+          "a": 1,
+          "b": 0.9725490196078431,
+          "g": 0.9686274509803922,
+          "r": 1.0
+        }
+      },
+      {
+        "key": "variable/signal/muted-cyan",
+        "name": "signal/muted-cyan",
+        "type": "COLOR",
+        "value": {
+          "a": 1,
+          "b": 0.9686274509803922,
+          "g": 0.8431372549019608,
+          "r": 0.6196078431372549
+        }
+      },
+      {
+        "key": "variable/space/unit",
+        "name": "space/unit",
+        "type": "FLOAT",
+        "value": 4
+      },
+      {
+        "key": "variable/control/desktop-height",
+        "name": "control/desktop-height",
+        "type": "FLOAT",
+        "value": 60
+      },
+      {
+        "key": "variable/control/mobile-height",
+        "name": "control/mobile-height",
+        "type": "FLOAT",
+        "value": 52
+      },
+      {
+        "key": "variable/control/desktop-input-height",
+        "name": "control/desktop-input-height",
+        "type": "FLOAT",
+        "value": 58
+      },
+      {
+        "key": "variable/control/radius",
+        "name": "control/radius",
+        "type": "FLOAT",
+        "value": 10
+      },
+      {
+        "key": "variable/control/checkbox-radius",
+        "name": "control/checkbox-radius",
+        "type": "FLOAT",
+        "value": 5
+      },
+      {
+        "key": "variable/layout/desktop-form",
+        "name": "layout/desktop-form",
+        "type": "FLOAT",
+        "value": 440
+      },
+      {
+        "key": "variable/layout/mobile-form",
+        "name": "layout/mobile-form",
+        "type": "FLOAT",
+        "value": 342
+      },
+      {
+        "key": "variable/stroke/control",
+        "name": "stroke/control",
+        "type": "FLOAT",
+        "value": 1
+      }
+    ]
+  },
+  "component_sets": [],
+  "node_trees": [
+    {
+      "auto_layout": {
+        "counter_axis_align": "MIN",
+        "counter_axis_sizing": "FIXED",
+        "item_spacing": 8,
+        "mode": "VERTICAL",
+        "padding": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "primary_axis_align": "MIN",
+        "primary_axis_sizing": "FIXED"
+      },
+      "bounds": {
+        "height": 88,
+        "width": 440,
+        "x": 0,
+        "y": 0
+      },
+      "children": [
+        {
+          "align": "left",
+          "bounds": {
+            "height": 22,
+            "width": 440,
+            "x": 0,
+            "y": 0
+          },
+          "characters": "Email",
+          "fill": {
+            "a": 1,
+            "b": 0.24313725490196078,
+            "g": 0.11372549019607843,
+            "r": 0.043137254901960784
+          },
+          "font": {
+            "family": "Noto Sans SC",
+            "style": "Bold"
+          },
+          "font_size": 14,
+          "key": "component/field/desktop/default/label",
+          "layoutSizingHorizontal": "FILL",
+          "line_height": 22,
+          "name": "component/field/desktop/default/label",
+          "opacity": 1,
+          "textAutoResize": "HEIGHT",
+          "type": "TEXT",
+          "variable_bindings": {
+            "fill": "variable/ink/primary"
+          },
+          "visible": true
+        },
+        {
+          "auto_layout": {
+            "counter_axis_align": "CENTER",
+            "counter_axis_sizing": "FIXED",
+            "item_spacing": 14,
+            "mode": "HORIZONTAL",
+            "padding": [
+              17.0,
+              20,
+              17.0,
+              20
+            ],
+            "primary_axis_align": "MIN",
+            "primary_axis_sizing": "FIXED"
+          },
+          "bounds": {
+            "height": 58,
+            "width": 440,
+            "x": 0,
+            "y": 30
+          },
+          "children": [
+            {
+              "align": "left",
+              "bounds": {
+                "height": 24,
+                "width": 364,
+                "x": 20,
+                "y": 17.0
+              },
+              "characters": "alex@studio.example",
+              "fill": {
+                "a": 1,
+                "b": 0.5647058823529412,
+                "g": 0.43137254901960786,
+                "r": 0.34509803921568627
+              },
+              "font": {
+                "family": "Noto Sans SC",
+                "style": "Regular"
+              },
+              "font_size": 16,
+              "key": "component/field/desktop/default/value",
+              "layoutSizingHorizontal": "FILL",
+              "line_height": 24,
+              "name": "component/field/desktop/default/value",
+              "opacity": 1,
+              "textAutoResize": "HEIGHT",
+              "type": "TEXT",
+              "variable_bindings": {
+                "fill": "variable/ink/secondary"
+              },
+              "visible": true
+            },
+            {
+              "auto_layout": {
+                "counter_axis_align": "MIN",
+                "counter_axis_sizing": "FIXED",
+                "item_spacing": 8,
+                "mode": "NONE",
+                "padding": [
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "primary_axis_align": "MIN",
+                "primary_axis_sizing": "FIXED"
+              },
+              "bounds": {
+                "height": 22,
+                "width": 22,
+                "x": 398,
+                "y": 18.0
+              },
+              "children": [
+                {
+                  "auto_layout": {
+                    "counter_axis_align": "MIN",
+                    "counter_axis_sizing": "FIXED",
+                    "item_spacing": 0,
+                    "mode": "NONE",
+                    "padding": [
+                      0,
+                      0,
+                      0,
+                      0
+                    ],
+                    "primary_axis_align": "MIN",
+                    "primary_axis_sizing": "FIXED"
+                  },
+                  "bounds": {
+                    "height": 22,
+                    "width": 22,
+                    "x": 0,
+                    "y": 0
+                  },
+                  "children": [
+                    {
+                      "bounds": {
+                        "height": 12.832203354863886,
+                        "width": 18.334260022251442,
+                        "x": 1.8328699888742785,
+                        "y": 4.583898322568058
+                      },
+                      "fill": null,
+                      "key": "component/field/desktop/default/eye/vector",
+                      "name": "Lucide vector geometry",
+                      "opacity": 1,
+                      "paths": [
+                        {
+                          "data": "M 0.057297 6.735102 C -0.019099 6.529296 -0.019099 6.302908 0.057297 6.097102 C 1.578984 2.407434 5.175992 0 9.16713 0 C 13.158268 0 16.755276 2.407434 18.276963 6.097102 C 18.353359 6.302908 18.353359 6.529296 18.276963 6.735102 C 16.755276 10.42477 13.158268 12.832203 9.16713 12.832203 C 5.175992 12.832203 1.578984 10.42477 0.057297 6.735102",
+                          "windingRule": "NONZERO"
+                        },
+                        {
+                          "data": "M 11.91713 6.416102 C 11.91713 7.934885 10.685913 9.166102 9.16713 9.166102 C 7.648347 9.166102 6.41713 7.934885 6.41713 6.416102 C 6.41713 4.897319 7.648347 3.666102 9.16713 3.666102 C 10.685913 3.666102 11.91713 4.897319 11.91713 6.416102 Z",
+                          "windingRule": "NONZERO"
+                        }
+                      ],
+                      "stroke": {
+                        "a": 1,
+                        "b": 0.5647058823529412,
+                        "g": 0.43137254901960786,
+                        "r": 0.34509803921568627
+                      },
+                      "stroke_cap": "ROUND",
+                      "stroke_join": "ROUND",
+                      "stroke_width": 1.7,
+                      "type": "VECTOR",
+                      "variable_bindings": {
+                        "stroke": "variable/ink/secondary"
+                      },
+                      "visible": true
+                    }
+                  ],
+                  "key": "component/field/desktop/default/eye",
+                  "name": "component/field/desktop/default/eye",
+                  "opacity": 1,
+                  "type": "FRAME",
+                  "visible": false
+                }
+              ],
+              "key": "component/field/desktop/default/eye-slot",
+              "name": "component/field/desktop/default/eye-slot",
+              "opacity": 1,
+              "type": "FRAME",
+              "visible": true
+            }
+          ],
+          "corner_radius": 10,
+          "fill": {
+            "a": 1,
+            "b": 0.9882352941176471,
+            "g": 0.9647058823529412,
+            "r": 0.9490196078431372
+          },
+          "key": "component/field/desktop/default/control",
+          "layoutSizingHorizontal": "FILL",
+          "name": "component/field/desktop/default/control",
+          "opacity": 1,
+          "stroke": {
+            "a": 1,
+            "b": 0.9254901960784314,
+            "g": 0.8470588235294118,
+            "r": 0.788235294117647
+          },
+          "stroke_width": 1,
+          "type": "FRAME",
+          "variable_bindings": {
+            "cornerRadius": "variable/control/radius",
+            "fill": "variable/control/inset",
+            "height": "variable/control/desktop-input-height",
+            "stroke": "variable/control/border",
+            "strokeWeight": "variable/stroke/control"
+          },
+          "visible": true
+        }
+      ],
+      "component_set_ref": null,
+      "key": "component/field/desktop/default",
+      "name": "component/field/desktop/default",
+      "opacity": 1,
+      "type": "COMPONENT",
+      "variant_properties": {},
+      "visible": true
+    },
+    {
+      "key": "screen/fixture",
+      "type": "FRAME",
+      "name": "Synthetic screen",
+      "bounds": {
+        "x": 0,
+        "y": 0,
+        "width": 500,
+        "height": 200
+      },
+      "visible": true,
+      "opacity": 1,
+      "children": [
+        {
+          "key": "fixture/field",
+          "type": "INSTANCE",
+          "name": "Fixture field",
+          "bounds": {
+            "x": 10,
+            "y": 10,
+            "width": 440,
+            "height": 88
+          },
+          "visible": true,
+          "opacity": 1,
+          "component_ref": "component/field/desktop/default",
+          "overrides": []
+        }
+      ]
+    }
+  ]
+}

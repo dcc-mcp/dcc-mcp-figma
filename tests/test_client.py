@@ -81,3 +81,44 @@ def test_trial_does_not_create_remote_or_credential_bearing_connections(url):
     with pytest.raises(TrialError) as error:
         local_endpoint(url)
     assert "secret" not in str(error.value)
+
+
+@pytest.mark.parametrize("foreign", [False, True])
+def test_partial_apply_receipt_survives_inner_failure_without_replay(foreign):
+    receipt = {
+        "schema_version": 1,
+        "operation_id": "foreign" if foreign else "synthetic_apply_001",
+        "stage": "nodes",
+        "mutation_attempted": True,
+        "completed_steps": 1,
+        "created_node_ids": ["3:4"],
+        "collection_ids": [],
+        "variable_ids": [],
+        "component_set_ids": [],
+        "root_ids": ["3:4"],
+    }
+    session = SyntheticSession(
+        [
+            pending(),
+            {
+                "status": "completed",
+                "result": {
+                    "success": False,
+                    "error": "synthetic-private-exception",
+                    "context": {"partial_receipt": receipt},
+                },
+            },
+        ]
+    )
+    with pytest.raises(TrialError) as caught:
+        asyncio.run(
+            invoke(
+                session,
+                NATIVE_TOOLS | {"jobs_get_status"},
+                "figma_design__apply_blueprint",
+                {"operation_id": "synthetic_apply_001"},
+            )
+        )
+    assert caught.value.receipt == (None if foreign else receipt)
+    assert "private" not in str(caught.value)
+    assert [name for name, _ in session.calls] == ["figma_design__apply_blueprint", "jobs_get_status"]

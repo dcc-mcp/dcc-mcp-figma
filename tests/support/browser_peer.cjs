@@ -7,6 +7,7 @@ const vm = require('node:vm');
 const { createHash, randomUUID } = require('node:crypto');
 const readline = require('node:readline');
 const { createSyntheticFigma } = require('./synthetic_figma.cjs');
+const { createSyntheticBlueprintFigma } = require('./synthetic_blueprint_figma.cjs');
 
 async function main() {
   const port = Number(process.argv[2]);
@@ -16,12 +17,16 @@ async function main() {
   const preparedDirectory = process.argv[3] ? path.resolve(process.argv[3]) : null;
   const mode = process.argv[4] || 'default';
   const trialMode = mode.startsWith('native-trial');
+  const blueprintMode = mode === 'blueprint';
   const supportedModes = ['default', 'native-trial', 'native-trial-export-failure',
-    'native-trial-wrong-width', 'native-trial-wrong-fill'];
+    'native-trial-wrong-width', 'native-trial-wrong-fill', 'blueprint'];
   if (!supportedModes.includes(mode) || (trialMode && !preparedDirectory)) {
     throw new Error('synthetic_configuration_invalid');
   }
-  const fixture = createSyntheticFigma({ now: Date.now() });
+  // The shipping runtime supplies its own guards. Standalone engine tests keep
+  // the fixture's independent guard assertions enabled.
+  const fixture = blueprintMode ? createSyntheticBlueprintFigma({ now: Date.now(), enforceFixtureGuards: false }) :
+    createSyntheticFigma({ now: Date.now() });
   if (trialMode) {
     // The native-trial command requires an empty page. Keep other fixture users unchanged.
     fixture.page.children.splice(0);
@@ -80,6 +85,7 @@ async function main() {
   if (preparedDirectory) {
     vm.runInContext(code, hostContext);
   } else {
+    vm.runInContext(fs.readFileSync(path.join(root, 'plugin/blueprint.js'), 'utf8'), hostContext);
     vm.runInContext(fs.readFileSync(path.join(root, 'plugin/runtime.js'), 'utf8'), hostContext);
     vm.runInContext(fs.readFileSync(path.join(root, 'plugin/main.js'), 'utf8'), hostContext);
   }
@@ -117,7 +123,8 @@ async function main() {
     commands = commands.then(async () => {
     if (line === 'inspect') {
       process.stdout.write(JSON.stringify({ writes: fixture.writes, calls: fixture.calls,
-        marker: fixture.marker(), node_count: fixture.nodes.size,
+        marker: blueprintMode ? fixture.api.root.getPluginData('dcc_mcp_document_id') || null : fixture.marker(),
+        node_count: fixture.nodes.size,
         evidence: 'synthetic', native_acceptance: 'not_run' }) + '\n');
     } else if (line === 'disconnect') {
       elements.get('disconnect').events.click();

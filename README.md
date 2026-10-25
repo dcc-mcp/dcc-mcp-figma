@@ -154,6 +154,9 @@ guarantee that all immediately preceding edits are included.
   remains queryable after a disconnect. Export and blueprint operations are
   asynchronous Core jobs. Their timeout hints do not extend the plugin deadline;
   use an explicit `serve --request-timeout 120` for the bounded blueprint trial.
+  The plugin UI waits only for the remaining bound deadline, capped at 120
+  seconds, and stops without replay when it expires. Initialization keeps a
+  separate 30-second limit; each loopback HTTP request has its own network limit.
 
 The public Core composition uses `ToolRegistry`, `McpHttpServer`,
 `ReadinessProbe` and `ReverseBridgeSession`. `DccServerBase` currently has no
@@ -192,8 +195,14 @@ actual file reopening or cloud persistence.
 Native Core 0.20.44 and Node 24 are the local validation baseline. Production
 Python sources retain Python 3.7 syntax; this is not the Creator's native Python
 3.7 aggregate release acceptance. Official MCP trial scripts require its Python
-3.10+ SDK. No package, catalog install entry or public release is published.
+3.10+ SDK. Source/editable builds use a modern build toolchain: the declared
+Hatchling backend does not establish Python 3.7 source-install compatibility.
+Neither a Python 3.7 source install nor its native aggregate has been accepted.
+No package, catalog install entry or public release is published.
 See the [first release gates](docs/FIRST_RELEASE_GATES.md) and
 [showcase contract review](docs/SHOWCASE_ACCEPTANCE.md).
+The [local plugin installation guide](docs/LOCAL_PLUGIN_INSTALLATION.md)
+distinguishes the offline artwork ZIP, generated plugin kit and external
+Runtime, and lists the native demonstration steps that remain unverified.
 See [official sources](SOURCES.md) and retain verification outputs for the exact
 tested commit and remaining host/organization blockers.

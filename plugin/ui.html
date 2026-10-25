@@ -53,12 +53,22 @@
     function hostCall(session, type, request) {
       const id = type === "initialize" ? "initialize" : request.id;
       const requestKey = key(session.instanceId, type === "initialize" ? "initialized" : "response", id);
+      let waitMs = 30000;
+      if (type !== "initialize") {
+        const deadline = request.params.deadline_ms;
+        if (!Number.isSafeInteger(deadline)) throw new Error("host_request_deadline_invalid");
+        const remaining = deadline - Date.now();
+        if (remaining <= 0 || remaining > 120000) {
+          throw new Error("host_request_deadline_invalid");
+        }
+        waitMs = remaining;
+      }
       return new Promise((resolve, reject) => {
         if (pending.has(requestKey)) { reject(new Error("host_request_conflict")); return; }
         const timeout = setTimeout(() => {
           pending.delete(requestKey);
           reject(new Error("host_request_timeout"));
-        }, 30000);
+        }, waitMs);
         pending.set(requestKey, { resolve, reject, timeout, instance: session.instanceId });
         post(type === "initialize" ? { type, instance_id: session.instanceId } : {
           type: "request", instance_id: session.instanceId, request_id: request.id,

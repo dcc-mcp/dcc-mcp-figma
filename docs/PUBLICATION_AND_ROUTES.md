@@ -3,10 +3,12 @@
 Reviewed 2026-10-24. This is a source-backed product assessment, not a grant of
 permission or a legal conclusion. The user subsequently selected local
 development-plugin deployment and authorized local configuration and a
-corresponding organization repository, with private visibility protected.
-The existing implementation, tests and native-validation gaps remain unchanged.
-There has been no submission, publication, deletion, official contact or attempt
-to conceal functionality.
+corresponding organization repository, initially private. Source publication of
+this exact repository was subsequently authorized, conditional on completion of
+its publication audit.
+That is separate from Community publication, package release and native evidence.
+The implementation and explicit native-validation gaps are preserved. There has
+been no Community submission, official contact or attempt to conceal functionality.
 
 ## Distribution boundary
 

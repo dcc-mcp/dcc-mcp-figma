@@ -1,6 +1,6 @@
 # Figma login showcase acceptance and public handoff
 
-Status: private preparation only. No showcase files have been submitted by this
+Status: offline preparation only. No showcase files have been submitted by this
 review. This document records the existing showcase rules; it does not change
 them, certify native production, or grant new distribution rights.
 
@@ -241,4 +241,5 @@ native/source engineering packages belong in an explicitly cleared repository
 release or external resource, not in an automatically preloaded gallery bundle.
 Do not install tools, create releases, upload, merge or deploy merely to satisfy
 this checklist. The root task must apply its current authorizations and retain
-the private adapter's visibility boundary.
+the separately authorized source-visibility boundary. Public source does not
+establish native production or authorize unrelated public assets or packages.

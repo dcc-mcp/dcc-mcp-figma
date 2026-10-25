@@ -1,10 +1,12 @@
 # First release acceptance
 
-The current task explicitly authorizes a first merge/release after review, exact
-head CI, native Figma acceptance and publication sanitation. That authorization
-does not replace the checks below. The repository remains private and local
-development-plugin deployment remains the selected route. Community publication
-is not authorized.
+The task explicitly authorizes audited source publication for this repository,
+and separately a first merge/release after review, exact-head CI, native Figma
+acceptance and publication sanitation. Public source does not replace the checks
+below or authorize changes to other repositories. Merge targets the actual
+default branch; do not create or rename a branch to match a conversational label.
+Local development-plugin deployment remains the selected route. Community
+publication is not authorized.
 
 ## Required evidence
 
@@ -19,7 +21,7 @@ is not authorized.
 | Export | Actual PNG/SVG bytes and hashes; inspect/reopen exports in an intended consumer | Offline SVG/PNG rendering is separate evidence |
 | Reproduction | Approved blank-page rebuild from a recorded recipe and comparison against stated tolerances | A repeated fixture or replay of an indeterminate write is not reproduction |
 | Showcase | The original showcase repository's current contract, inventory, attribution, licenses, native video, localization and site checks | See [showcase acceptance](SHOWCASE_ACCEPTANCE.md); no private implementation or machine information is automatically cleared for its public tree |
-| Publication | Final artifacts and archives inspected for secrets, private paths, accounts, internal assets and license obligations; exact tested head still current | No private-to-public visibility change, additional repository or package publisher |
+| Publication | Final artifacts and archives inspected for secrets, private paths, accounts, internal assets and license obligations; exact tested head still current | Visibility authorization is limited to this audited source repository; no additional repository or package publisher |
 
 ## Unresolved native prerequisites
 

@@ -248,15 +248,15 @@ class FigmaBinding:
                 )
                 raise BindingError(code, dispatched=True) from None
             observed_receipt = None
+            if method == "design.blueprint.apply" and isinstance(result, dict):
+                data = result.get("data")
+                candidate = data.get("receipt") if isinstance(data, dict) else result.get("receipt")
+                observed_receipt = partial_receipt(candidate, arguments.get("operation_id"))
             try:
                 with self._lock:
                     self._current(connection_id)
                     if not isinstance(result, dict) or type(result.get("ok")) is not bool:
                         raise BindingError("invalid_response")
-                    if method == "design.blueprint.apply":
-                        data = result.get("data")
-                        candidate = data.get("receipt") if isinstance(data, dict) else result.get("receipt")
-                        observed_receipt = partial_receipt(candidate, arguments.get("operation_id"))
                     if result["ok"] is not True:
                         raise BindingError(result.get("error", "plugin_error"), receipt=observed_receipt)
                     document = _document(result.get("document"))

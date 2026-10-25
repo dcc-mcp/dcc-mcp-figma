@@ -164,6 +164,34 @@ def test_figma_minimum_resize_dimension_is_accepted():
     assert validate_blueprint(wire)["node_trees"][1]["bounds"]["width"] == 0.01
 
 
+@pytest.mark.parametrize("paint", ["fill", "stroke"])
+@pytest.mark.parametrize("missing", [False, True])
+def test_bound_paint_requires_a_present_solid_paint(paint, missing):
+    wire = wire_design()
+    node = wire["node_trees"][0]["children"][0]
+    node["variable_bindings"][paint] = "variable/ink"
+    node[paint] = None
+    if missing:
+        node.pop(paint)
+    with pytest.raises(BlueprintError):
+        validate_blueprint(wire)
+
+
+def test_text_cannot_bind_a_rectangle_corner_radius():
+    wire = wire_design()
+    wire["node_trees"][0]["children"][1]["variable_bindings"] = {"cornerRadius": "variable/radius"}
+    with pytest.raises(BlueprintError):
+        validate_blueprint(wire)
+
+
+@pytest.mark.parametrize("field", ["key", "mode_key"])
+def test_collection_and_mode_keys_cannot_collide_with_node_keys(field):
+    wire = wire_design()
+    wire["variables"]["collection"][field] = wire["node_trees"][0]["key"]
+    with pytest.raises(BlueprintError):
+        validate_blueprint(wire)
+
+
 @pytest.mark.parametrize("width,height", [(64, 8), (16, 16)])
 def test_vector_intrinsic_curve_extrema_must_match_declared_bounds(width, height):
     wire = wire_design()

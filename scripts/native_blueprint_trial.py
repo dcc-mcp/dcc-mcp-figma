@@ -320,7 +320,7 @@ def verify_readback(data, wire, application, operation):
     root = observed[application["run_root_id"]]
     require(root.get("type") == "FRAME" and root.get("name") == wire["title"])
 
-    def verify(spec, identifier, parent, *, clone=False, overrides=None):
+    def verify(spec, identifier, parent, *, clone=False, overrides=None, parent_spec=None):
         require(identifier in observed and identifier not in visited)
         visited.add(identifier)
         node = observed[identifier]
@@ -345,6 +345,20 @@ def verify_readback(data, wire, application, operation):
             )
         require(node.get("name") == name and node.get("visible") is effective["visible"])
         _number(node.get("opacity"), effective["opacity"])
+        if parent_spec is not None and not clone:
+            parent_mode = parent_spec.get("auto_layout", {}).get("mode", "NONE")
+            if parent_mode == "NONE" or effective.get("layout_positioning") == "ABSOLUTE":
+                for coordinate, size, constraint in (
+                    ("x", "width", "horizontal"),
+                    ("y", "height", "vertical"),
+                ):
+                    if (
+                        parent_mode != "NONE"
+                        and not _fixed_axis(parent_spec, size)
+                        and effective.get("constraints", {}).get(constraint, "MIN") != "MIN"
+                    ):
+                        continue  # Native constraint projection in an auto-sized parent.
+                    _number(node.get(coordinate), effective["bounds"][coordinate])
         for axis in ("width", "height"):
             if spec["type"] == "VECTOR" or _fixed_axis(inherited, axis):
                 expected = (
@@ -456,7 +470,14 @@ def verify_readback(data, wire, application, operation):
             projected = {
                 path[1:]: changes for path, changes in child_overrides.items() if path and path[0] == index
             }
-            verify(child, child_id, identifier, clone=clone or master is not None, overrides=projected)
+            verify(
+                child,
+                child_id,
+                identifier,
+                clone=clone or master is not None,
+                overrides=projected,
+                parent_spec=inherited,
+            )
 
     for tree in wire["node_trees"]:
         parent = application["component_sets"].get(tree.get("component_set_ref"), application["run_root_id"])

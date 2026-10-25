@@ -609,6 +609,31 @@ def test_readback_accepts_official_quadratic_to_cubic_normalization_only_with_ma
         trial_module._same_path("M 0 0 C 5.333333 11 10.666667 10.666667 16 0", source)
 
 
+@pytest.mark.parametrize("coordinate", ["x", "y"])
+def test_absolute_child_position_is_verified_under_auto_layout(trial_module, coordinate):
+    wire = _wire()
+    frame = next(node for node in wire["node_trees"] if node["key"] == "screen/desktop/default")
+    frame["auto_layout"]["mode"] = "HORIZONTAL"
+    frame["children"][0]["layout_positioning"] = "ABSOLUTE"
+    application, observed = _observations(wire, _OPERATION)
+    target = next(node for node in observed["nodes"] if node["name"] == "screen/desktop/default/heading")
+    target["layoutPositioning"] = "ABSOLUTE"
+    trial_module.verify_readback(observed, wire, application, _OPERATION)
+    target[coordinate] = 999999
+    with pytest.raises(TrialError):
+        trial_module.verify_readback(observed, wire, application, _OPERATION)
+
+
+def test_auto_layout_flow_coordinates_are_not_compared_to_unprojected_wire_bounds(trial_module):
+    wire = _wire()
+    frame = next(node for node in wire["node_trees"] if node["key"] == "screen/desktop/default")
+    frame["auto_layout"].update(mode="HORIZONTAL", padding=[8, 0, 0, 24])
+    application, observed = _observations(wire, _OPERATION)
+    target = next(node for node in observed["nodes"] if node["name"] == "screen/desktop/default/heading")
+    target.update(x=24, y=492)
+    assert trial_module.verify_readback(observed, wire, application, _OPERATION)
+
+
 def test_synthetic_reconnect_exports_fresh_bytes_only_after_same_id_readback(prepared, trial_module):
     written = asyncio.run(trial_module.trial(_arguments(prepared)))
     prepared.peer.connection = "synthetic_connection_two"
@@ -668,10 +693,16 @@ def test_reconnect_export_scope_or_structure_failure_never_exports_or_reapplies(
     assert "figma_design__apply_blueprint" not in calls and "figma_nodes__export" not in calls
 
 
-@pytest.mark.parametrize("field", ["width", "characters", "alias", "main_component", "mode", "truncated"])
+@pytest.mark.parametrize(
+    "field", ["x", "y", "width", "characters", "alias", "main_component", "mode", "truncated"]
+)
 def test_wrong_observed_properties_stop_before_export_without_replay(prepared, trial_module, field):
     def fault(data):
-        if field == "width":
+        if field in {"x", "y"}:
+            next(node for node in data["nodes"] if node.get("name") == "screen/desktop/default/heading")[
+                field
+            ] = 999999
+        elif field == "width":
             next(node for node in data["nodes"] if node.get("name") == "screen/desktop/default")["width"] = (
                 1439
             )

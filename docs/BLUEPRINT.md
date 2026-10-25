@@ -97,10 +97,12 @@ actually follows saving, closing and reopening the same file.
 
 Vector paths are authoritative intrinsic geometry: their tight origin and
 Bezier-extrema bounds must match the declared bounds within 0.001. Zero-axis
-line vectors remain valid; other node dimensions must be at least 0.01, matching
+line vectors remain valid; v1 intrinsic vectors cannot use `FILL` sizing, which
+would rescale those paths. Other node dimensions must be at least 0.01, matching
 Figma's resize limit. Baseline cross-axis alignment requires horizontal Auto
-Layout. Readback compares equivalent quadratic/cubic geometry with numeric
-tolerance because Figma may normalize quadratic paths to cubic paths.
+Layout. Readback compares equivalent quadratic/cubic geometry using absolute
+tolerance 0.001 and relative tolerance 1e-6 because Figma may normalize
+quadratic paths to cubic paths.
 
 ## Failure and evidence
 

@@ -182,6 +182,35 @@ def test_vector_intrinsic_curve_extrema_must_match_declared_bounds(width, height
         validate_blueprint(wire)
 
 
+@pytest.mark.parametrize("axis", ["layoutSizingHorizontal", "layoutSizingVertical"])
+def test_intrinsic_vector_rejects_fill_even_with_valid_auto_layout_parent(axis):
+    wire = wire_design()
+    frame = wire["node_trees"][1]
+    frame["auto_layout"] = {
+        "mode": "HORIZONTAL",
+        "item_spacing": 0,
+        "padding": [0, 0, 0, 0],
+        "primary_axis_sizing": "FIXED",
+        "counter_axis_sizing": "FIXED",
+        "primary_axis_align": "MIN",
+        "counter_axis_align": "MIN",
+    }
+    vector = {
+        "key": "vector/curve",
+        "type": "VECTOR",
+        "name": "Curve",
+        "visible": True,
+        "opacity": 1,
+        "bounds": {"x": 0, "y": 0, "width": 16, "height": 8},
+        "paths": [{"windingRule": "NONZERO", "data": "M 0 0 Q 8 16 16 0"}],
+    }
+    frame["children"].append(vector)
+    validate_blueprint(wire)
+    vector[axis] = "FILL"
+    with pytest.raises(BlueprintError):
+        validate_blueprint(wire)
+
+
 @pytest.mark.parametrize(
     "mutation",
     [

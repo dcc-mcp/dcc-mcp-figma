@@ -293,6 +293,7 @@ def _validate_blueprint(value):
             if sizing in n:
                 _require(n[sizing] in {"FIXED", "FILL", "HUG"})
                 if n[sizing] == "FILL":
+                    _require(n["type"] != "VECTOR")
                     _require(
                         parent is not None
                         and isinstance(parent.get("auto_layout"), dict)

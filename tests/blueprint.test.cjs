@@ -211,6 +211,8 @@ test('synthetic blueprint: tail schema/reference failures preflight all nodes be
     ['native resize below minimum', bp => { bp.node_trees.at(-1).bounds.width = 0.001; }],
     ['vertical baseline alignment', bp => { bp.node_trees[0].auto_layout.mode = 'VERTICAL'; bp.node_trees[0].auto_layout.counter_axis_align = 'BASELINE'; }],
     ['vector bounds differ from intrinsic path', bp => { bp.node_trees[0].children[4].bounds.width = 64; }],
+    ['intrinsic vector horizontal FILL', bp => { bp.node_trees[0].children[4].layoutSizingHorizontal = 'FILL'; }],
+    ['intrinsic vector vertical FILL', bp => { bp.node_trees[0].children[4].layoutSizingVertical = 'FILL'; }],
     ['image URL instead of bytes', bp => { bp.assets[0].url = 'https://example.invalid/image.png'; }],
     ['wrong PNG hash', bp => { bp.assets[0].sha256 = '0'.repeat(64); }],
     ['non-PNG image bytes', bp => { bp.assets[0].data_base64 = Buffer.from('not png').toString('base64'); }],

@@ -283,6 +283,7 @@ function createBlueprintEngine(figmaApi, dependencies) {
       if (own(node, "clip_content") && (typeof node.clip_content !== "boolean" || !choice(node.type, ["FRAME", "COMPONENT", "INSTANCE"]))) invalid();
       if (own(node, "auto_layout")) { if (!choice(node.type, ["FRAME", "COMPONENT", "INSTANCE"])) invalid(); layout(node.auto_layout); }
       for (const name of ["layoutSizingHorizontal", "layoutSizingVertical"]) if (own(node, name) && !choice(node[name], ["FIXED", "HUG", "FILL"])) invalid();
+      if (node.type === "VECTOR" && ["layoutSizingHorizontal", "layoutSizingVertical"].some(name => node[name] === "FILL")) invalid();
       if (own(node, "layout_positioning") && !choice(node.layout_positioning, ["AUTO", "ABSOLUTE"])) invalid();
       if (own(node, "constraints")) {
         fields(node.constraints, ["horizontal", "vertical"], []);

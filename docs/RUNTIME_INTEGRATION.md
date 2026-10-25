@@ -47,8 +47,8 @@ compatible; they are not evidence of a managed Runtime deployment.
 Tests inject an explicitly synthetic bootstrap API. They exercise shared selection,
 supported package Python versions, missing/denied manifests, ABI/Core rejection,
 bounded errors and the difference between negotiation and launch readiness.
-PC8 currently has no installed `dcc_mcp_runtime` package in the checked Python
-3.12 environment and no selected `DCC_MCP_RUNTIME_ROOT`; actual managed launch
+The reviewed development Python 3.12 environment had no installed
+`dcc_mcp_runtime` package and no selected `DCC_MCP_RUNTIME_ROOT`; actual managed launch
 and native Figma read/write/save/reopen/export remain unverified.
 
 ## Shared-owner handoff

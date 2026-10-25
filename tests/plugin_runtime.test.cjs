@@ -577,7 +577,7 @@ test('synthetic: node fill snapshots are bounded document RGB values without wri
 
 // Synthetic UI contract: this evaluates the shipped UI script with fake DOM,
 // parent messages and HTTP responses. It does not run a browser or Figma host.
-function createSyntheticUi(request) {
+function createSyntheticUi(request, options = {}) {
   const fs = require('node:fs');
   const vm = require('node:vm');
   const html = fs.readFileSync(require.resolve('../plugin/ui.html'), 'utf8');
@@ -593,13 +593,28 @@ function createSyntheticUi(request) {
   const posted = [];
   const fetched = [];
   const responses = [];
+  const timers = new Map();
+  let clock = options.now === undefined ? Date.now() : options.now;
+  let timerId = 0;
+  class SyntheticDate extends Date { static now() { return clock; } }
+  function schedule(callback, delay) {
+    if (!options.fakeClock) return setTimeout(callback, delay);
+    const id = ++timerId;
+    timers.set(id, { callback, due: clock + delay, delay });
+    return id;
+  }
+  function cancel(id) {
+    if (!options.fakeClock) clearTimeout(id);
+    else timers.delete(id);
+  }
   let delivered = false;
   const parent = { postMessage(message) { posted.push(JSON.parse(JSON.stringify(message.pluginMessage))); } };
   const response = (payload) => ({ ok: true, status: payload === null ? 204 : 200,
     async json() { return payload; } });
   const context = vm.createContext({
     document: { getElementById: (id) => elements.get(id) }, parent,
-    crypto: { randomUUID: () => 'synthetic-ui-instance' }, AbortController, setTimeout, clearTimeout,
+    crypto: { randomUUID: () => 'synthetic-ui-instance' }, AbortController,
+    Date: options.fakeClock ? SyntheticDate : Date, setTimeout: schedule, clearTimeout: cancel,
     fetch: async (url, options) => {
       const body = options.body === undefined ? undefined : JSON.parse(options.body);
       fetched.push({ url, options, body });
@@ -638,11 +653,19 @@ function createSyntheticUi(request) {
     await tick();
     await tick();
   }
-  return { posted, fetched, responses, elements, emit, start, close, tick };
+  async function advance(milliseconds) {
+    assert.ok(options.fakeClock);
+    clock += milliseconds;
+    for (const [id, timer] of [...timers]) if (timer.due <= clock) {
+      timers.delete(id); timer.callback();
+    }
+    await tick();
+  }
+  return { posted, fetched, responses, elements, emit, start, close, tick, advance, timers };
 }
 
 test('synthetic UI: Core JSON-RPC request and response categories remain correlated', async (t) => {
-  const request = { jsonrpc: '2.0', id: 'initialize', method: 'document.read', params: {} };
+  const request = { jsonrpc: '2.0', id: 'initialize', method: 'document.read', params: { deadline_ms: Date.now() + 30000 } };
   const h = createSyntheticUi(request);
   t.after(h.close);
   await h.start();
@@ -662,7 +685,7 @@ test('synthetic UI: Core JSON-RPC request and response categories remain correla
 });
 
 test('synthetic UI: malformed Core requests stop before dispatch', async (t) => {
-  const good = { jsonrpc: '2.0', id: 'synthetic-request', method: 'document.read', params: {} };
+  const good = { jsonrpc: '2.0', id: 'synthetic-request', method: 'document.read', params: { deadline_ms: Date.now() + 30000 } };
   const invalid = [
     ['missing JSON-RPC version', { id: good.id, method: good.method, params: {} }],
     ['wrong JSON-RPC version', { ...good, jsonrpc: '1.0' }],
@@ -680,6 +703,49 @@ test('synthetic UI: malformed Core requests stop before dispatch', async (t) => 
       assert.equal(h.posted.filter((message) => message.type === 'stop').length, 1);
       assert.equal(h.responses.length, 0);
       assert.match(h.elements.get('status').textContent, /Connection stopped/);
+    });
+  }
+});
+
+test('synthetic UI: plugin wait follows the bound deadline beyond thirty seconds without replay', async (t) => {
+  const now = 1800000000000;
+  const request = { jsonrpc: '2.0', id: 17, method: 'design.blueprint.apply', params: { deadline_ms: now + 90000 } };
+  const h = createSyntheticUi(request, { fakeClock: true, now });
+  t.after(h.close);
+  await h.start();
+  await h.advance(31000);
+  assert.equal(h.posted.filter(message => message.type === 'stop').length, 0);
+  assert.equal(h.posted.filter(message => message.type === 'request').length, 1);
+  const result = { ok: true, document: { marker: 'synthetic' }, data: { receipt: { operation_id: 'synthetic' } } };
+  h.emit({ type: 'response', instance_id: 'synthetic-ui-instance', request_id: 17, result });
+  await h.tick();
+  assert.equal(h.responses.length, 1);
+});
+
+test('synthetic UI: deadline expiry stops once and discards a late mutation response', async (t) => {
+  const now = 1800000000000;
+  const request = { jsonrpc: '2.0', id: 18, method: 'design.blueprint.apply', params: { deadline_ms: now + 60000 } };
+  const h = createSyntheticUi(request, { fakeClock: true, now });
+  t.after(h.close);
+  await h.start();
+  await h.advance(60000);
+  assert.equal(h.posted.filter(message => message.type === 'stop').length, 1);
+  h.emit({ type: 'response', instance_id: 'synthetic-ui-instance', request_id: 18, result: { ok: true, data: {} } });
+  await h.tick();
+  assert.equal(h.responses.length, 0);
+  assert.equal(h.posted.filter(message => message.type === 'request').length, 1);
+});
+
+test('synthetic UI: malformed or out-of-budget deadlines stop before plugin dispatch', async (t) => {
+  const now = 1800000000000;
+  for (const deadline of [undefined, null, true, 'later', now, now - 1, now + 120001, NaN, Infinity]) {
+    await t.test(String(deadline), async (subtest) => {
+      const request = { jsonrpc: '2.0', id: 19, method: 'design.blueprint.apply', params: { deadline_ms: deadline } };
+      const h = createSyntheticUi(request, { fakeClock: true, now });
+      subtest.after(h.close);
+      await h.start();
+      assert.equal(h.posted.filter(message => message.type === 'request').length, 0);
+      assert.equal(h.posted.filter(message => message.type === 'stop').length, 1);
     });
   }
 });

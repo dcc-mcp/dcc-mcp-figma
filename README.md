@@ -5,6 +5,10 @@ Figma Plugin API; `dcc-mcp-core` provides MCP serving, jobs, readiness and
 reverse-request correlation. This project is separate from Core's experimental
 five-provider session bridge and its runner exit-status fix.
 
+See the [development status](docs/DEVELOPMENT_STATUS.md) for the pinned source,
+canonical development-wheel identity and separate released/proposed Runtime
+contracts. A source merge does not establish native acceptance or a first release.
+
 **The selected route is local development-plugin deployment; Community publication is on hold.**
 Read the [publication limits and official-MCP complementary assessment](docs/PUBLICATION_AND_ROUTES.md).
 The implementation is preserved. Setup still requires a supported, authorized
@@ -57,6 +61,11 @@ published CPython payload or supported adapter-launch command. Its current
 manifest also lacks a Figma entry and uses a different Core requirement string
 that its equality-only handshake rejects. Managed deployment is blocked on those
 shared contracts; see [exact findings and owner handoff](docs/RUNTIME_INTEGRATION.md).
+Draft Runtime PR #5 now proposes verification and a bounded metadata probe of
+already staged bundles, followed by Core launch-plan data. It is not the released
+0.2.0 contract, does not install or start this adapter, and is not consumed by
+Figma's existing `runtime-preflight`. The integration guide pins the inspected
+draft source separately from the released baseline.
 The Python commands below remain explicit developer/test entry points, and do
 not establish a managed Runtime installation or launch.
 

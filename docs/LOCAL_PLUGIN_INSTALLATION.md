@@ -56,11 +56,15 @@ The existing `serve` entry is an **explicit development/test path**, not managed
 Runtime deployment. It must not be presented as the missing Runtime launcher
 or an installation-ready first release.
 
-A future **DeveloperKit** could collect the unpublished adapter wheel, approved
-strict wire, compiler/trial scripts and plugin preparation assets. Those are
-preparation materials, not an installed plugin or verified Runtime. Such a kit
-has not been published or accepted as a first release. It must contain no
-pairing secrets, private execution receipts or implied permissions.
+A **development preparation kit** has been delivered separately for review,
+containing an unpublished adapter wheel, strict wire, compiler/trial scripts,
+plugin preparation assets and verification notes. It is not a release asset,
+installed plugin, native `.fig` file or verified Runtime. The package's pinned
+source and wheel digest must be checked before use; see
+[the canonical wheel and proposed Runtime contract](RUNTIME_INTEGRATION.md#proposed-staged-launch-contract).
+Preparing or receiving it grants no installation, pairing or execution authority.
+Keep pairing secrets, private execution receipts and unapproved source material
+outside any public kit.
 
 ## Prerequisites
 
@@ -228,5 +232,5 @@ the real files; do not relabel earlier exports as newly generated ones.
 
 No installation video is delivered by this document. Do not stage a live
 success, splice offline images into a supposed native demonstration, publish
-private source/receipts or treat the future DeveloperKit as a first release.
+private source/receipts or treat the development preparation kit as a first release.
 See [First release acceptance](FIRST_RELEASE_GATES.md).

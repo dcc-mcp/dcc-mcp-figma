@@ -28,6 +28,39 @@ The existing Core CLI's `--no-update-maintenance` flag can skip update
 maintenance in source. Its presence in the installed executable was not tested;
 no retry of a previously denied staged update was performed for this work.
 
+## Proposed staged-launch contract
+
+Reviewed 2026-10-26: [Runtime draft PR #5](https://github.com/dcc-mcp/dcc-mcp-runtime/pull/5)
+at [`da6cb6024a15941722bb3af7fdd7e61819fadc36`](https://github.com/dcc-mcp/dcc-mcp-runtime/tree/da6cb6024a15941722bb3af7fdd7e61819fadc36)
+adds verification of an already staged bundle, an explicitly authorized bounded
+metadata probe, and existing Core launch-plan data. Its
+[staged-launch contract](https://github.com/dcc-mcp/dcc-mcp-runtime/blob/da6cb6024a15941722bb3af7fdd7e61819fadc36/docs/STAGED-LAUNCH.md)
+is proposed source, separate from the released 0.2.0 baseline above.
+
+The draft requires an independently approved lock digest and complete file
+inventory. Its probe observes the staged interpreter/ABI and distribution
+metadata, including actual Core compatibility against both unchanged requirement
+ranges. The resulting plan does not download, install, activate, start, pair or
+establish native acceptance. Immutable staging, the complete trusted payload and
+host-owned lifecycle remain separate requirements. Do not invoke a probe merely
+because a directory or manifest was discovered.
+
+Figma's current `runtime-preflight` still uses released selection/negotiation
+APIs; it does not discover or invoke `prepare-launch`. Its bounded blocker codes
+describe this unintegrated managed path, not a claim that no proposed launch
+contract exists. Adopting the draft requires exact-version review and a separately
+approved staged probe and lifecycle; no installation or activation was performed
+for this documentation update.
+
+The Figma owner supplied a canonical development wheel pinned to
+`b7d1dc108bd0f334754aa00af8ebbd6b6e65af81`: 63,920 bytes, SHA-256
+`611e5afca59f861b71ef6ff41d19ce315be05fa813311fdc40f3d3efc97c5a39`.
+All 17 Python/plugin source members match that snapshot's raw Git blobs, and
+21 hashed RECORD entries pass. Runtime's pinned draft independently records
+that comparison. Its documentation-only Figma manifest candidate is not a
+deployed manifest, signature, complete bundle lock or observed `cp311-win_amd64`
+payload. The stale 61,707-byte wheel must not be substituted.
+
 ## Adapter change
 
 `python -m dcc_mcp_figma runtime-preflight` is a read-only check. It validates

@@ -1,0 +1,12 @@
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.venv/
+*.pyc
+dist/
+build/
+*.egg-info/
+plugin/manifest.json
+native-evidence/
+*.local.json
+.env

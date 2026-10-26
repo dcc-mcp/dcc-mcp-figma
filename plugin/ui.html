@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { margin: 16px; color: var(--figma-color-text, #222); background: var(--figma-color-bg, #fff); font: 12px Inter, sans-serif; }
+    h1 { font-size: 15px; margin: 0 0 14px; }
+    label { display: block; margin: 10px 0 5px; }
+    input { box-sizing: border-box; width: 100%; padding: 7px; border: 1px solid #aaa; border-radius: 4px; }
+    button { padding: 7px 12px; margin: 12px 8px 0 0; }
+    #status { min-height: 32px; line-height: 1.4; overflow-wrap: anywhere; }
+    small { display: block; margin-top: 6px; color: var(--figma-color-text-secondary, #666); }
+  </style>
+</head>
+<body>
+  <h1>DCC-MCP Figma</h1>
+  <form id="pair-form">
+    <label for="port">Local adapter port</label>
+    <input id="port" type="number" min="1" max="65535" value="19061" required>
+    <label for="token">Pairing token</label>
+    <input id="token" type="password" autocomplete="off" spellcheck="false" required>
+    <small>Pair only with the local adapter you started. Keep this plugin open while connected.</small>
+    <button id="connect" type="submit">Connect</button>
+    <button id="disconnect" type="button" disabled>Disconnect</button>
+  </form>
+  <p id="status" role="status">Disconnected. No document changes are made by connecting.</p>
+  <script>
+  "use strict";
+  (function () {
+    const form = document.getElementById("pair-form");
+    const tokenInput = document.getElementById("token");
+    const portInput = document.getElementById("port");
+    const connectButton = document.getElementById("connect");
+    const disconnectButton = document.getElementById("disconnect");
+    const status = document.getElementById("status");
+    const pending = new Map();
+    let activeSession = null;
+    let connecting = false;
+
+    function setStatus(text) { status.textContent = text; }
+    function post(message) { parent.postMessage({ pluginMessage: message }, "*"); }
+    function isObject(value) { return value !== null && typeof value === "object" && !Array.isArray(value); }
+    function exactFields(value, expected) {
+      return isObject(value) && Object.keys(value).length === expected.length &&
+        expected.every(field => Object.prototype.hasOwnProperty.call(value, field));
+    }
+    function validId(value) {
+      return (typeof value === "string" && value.length > 0 && value.length <= 200) ||
+        (Number.isSafeInteger(value) && value >= 0);
+    }
+    function key(instance, type, id) { return JSON.stringify([instance, type, id]); }
+    function hostCall(session, type, request) {
+      const id = type === "initialize" ? "initialize" : request.id;
+      const requestKey = key(session.instanceId, type === "initialize" ? "initialized" : "response", id);
+      let waitMs = 30000;
+      if (type !== "initialize") {
+        const deadline = request.params.deadline_ms;
+        if (!Number.isSafeInteger(deadline)) throw new Error("host_request_deadline_invalid");
+        const remaining = deadline - Date.now();
+        if (remaining <= 0 || remaining > 120000) {
+          throw new Error("host_request_deadline_invalid");
+        }
+        waitMs = remaining;
+      }
+      return new Promise((resolve, reject) => {
+        if (pending.has(requestKey)) { reject(new Error("host_request_conflict")); return; }
+        const timeout = setTimeout(() => {
+          pending.delete(requestKey);
+          reject(new Error("host_request_timeout"));
+        }, waitMs);
+        pending.set(requestKey, { resolve, reject, timeout, instance: session.instanceId });
+        post(type === "initialize" ? { type, instance_id: session.instanceId } : {
+          type: "request", instance_id: session.instanceId, request_id: request.id,
+          method: request.method, params: request.params
+        });
+      });
+    }
+    window.onmessage = event => {
+      if (event.source !== parent) return;
+      const message = event.data && event.data.pluginMessage;
+      if (!message || !["initialized", "response"].includes(message.type)) return;
+      const expected = message.type === "initialized" ? ["type", "instance_id", "result"] :
+        ["type", "instance_id", "request_id", "result"];
+      if (!exactFields(message, expected) || typeof message.instance_id !== "string" || !isObject(message.result) ||
+          (message.type === "response" && !validId(message.request_id))) return;
+      const id = message.type === "initialized" ? "initialize" : message.request_id;
+      const requestKey = key(message.instance_id, message.type, id);
+      const waiter = pending.get(requestKey);
+      if (!waiter) return;
+      clearTimeout(waiter.timeout);
+      pending.delete(requestKey);
+      waiter.resolve(message.result);
+    };
+    async function http(session, path, body) {
+      if (session.stopped) throw new Error("stopped");
+      const options = { method: body === undefined ? "GET" : "POST", cache: "no-store",
+        credentials: "omit", headers: { Authorization: "Bearer " + session.token }, signal: session.controller.signal };
+      if (body !== undefined) { options.headers["Content-Type"] = "application/json"; options.body = JSON.stringify(body); }
+      const timeout = setTimeout(() => session.controller.abort(), 15000);
+      try {
+        const response = await fetch(session.base + path, options);
+        if (!response.ok) throw new Error("adapter_request_failed");
+        return response.status === 204 ? null : await response.json();
+      } finally { clearTimeout(timeout); }
+    }
+    async function stop(session, label) {
+      if (!session || session.stopped) return;
+      session.stopped = true;
+      session.controller.abort();
+      post({ type: "stop", instance_id: session.instanceId });
+      for (const [requestKey, waiter] of pending) {
+        if (waiter.instance === session.instanceId) {
+          clearTimeout(waiter.timeout); pending.delete(requestKey); waiter.reject(new Error("stopped"));
+        }
+      }
+      const token = session.token;
+      session.token = "";
+      if (session.connectionId) {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 3000);
+        try {
+          await fetch(session.base + "/disconnect", { method: "POST", credentials: "omit", cache: "no-store", keepalive: true,
+            signal: controller.signal,
+            headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+            body: JSON.stringify({ connection_id: session.connectionId }) });
+        } catch (_) { /* A failed disconnect is never retried. */ }
+        finally { clearTimeout(timeout); }
+      }
+      if (activeSession === session) activeSession = null;
+      connectButton.disabled = false; disconnectButton.disabled = true; portInput.disabled = false;
+      setStatus(label);
+    }
+    async function poll(session) {
+      try {
+        while (!session.stopped) {
+          const envelope = await http(session, "/request?connection_id=" + encodeURIComponent(session.connectionId));
+          if (session.stopped) return;
+          if (envelope === null) { await new Promise(resolve => setTimeout(resolve, 250)); continue; }
+          const request = envelope.request;
+          if (!exactFields(envelope, ["connection_id", "request"]) || envelope.connection_id !== session.connectionId ||
+              !exactFields(request, ["jsonrpc", "id", "method", "params"]) || request.jsonrpc !== "2.0" || !validId(request.id) ||
+              typeof request.method !== "string" || !isObject(request.params)) {
+            throw new Error("adapter_response_invalid");
+          }
+          const result = await hostCall(session, "request", request);
+          if (session.stopped) return;
+          await http(session, "/response", { connection_id: session.connectionId, id: request.id, result });
+        }
+      } catch (_) {
+        await stop(session, "Connection stopped. Review the adapter before connecting again.");
+      }
+    }
+    form.addEventListener("submit", async event => {
+      event.preventDefault();
+      if (connecting || activeSession) return;
+      const port = Number(portInput.value);
+      const token = tokenInput.value;
+      tokenInput.value = "";
+      if (!Number.isInteger(port) || port < 1 || port > 65535 || typeof token !== "string" ||
+          token.length < 32 || token.length > 256 || /[^\x21-\x7e]/.test(token)) {
+        setStatus("Enter a valid local port and a 32–256 character ASCII pairing token without spaces."); return;
+      }
+      connecting = true; connectButton.disabled = true; portInput.disabled = true;
+      let session;
+      try {
+        session = { base: "http://127.0.0.1:" + port, token, instanceId: crypto.randomUUID(),
+          connectionId: null, stopped: false, controller: new AbortController() };
+        activeSession = session;
+        disconnectButton.disabled = false;
+        setStatus("Reading the current document before pairing…");
+        const result = await hostCall(session, "initialize");
+        if (session.stopped) return;
+        if (!result || result.ok !== true || !result.document) throw new Error("host_initialization_failed");
+        const connected = await http(session, "/connect", { protocol: 1, plugin_instance: session.instanceId, document: result.document });
+        if (session.stopped) return;
+        if (!connected || typeof connected.connection_id !== "string" || !connected.connection_id) {
+          throw new Error("adapter_response_invalid");
+        }
+        session.connectionId = connected.connection_id;
+        setStatus("Connected to the current document. Requests are limited to this plugin session.");
+        void poll(session);
+      } catch (_) {
+        if (session) await stop(session, "Connection stopped. Check the local adapter and approved plugin access.");
+        else { connectButton.disabled = false; portInput.disabled = false; setStatus("Connection could not start."); }
+      } finally { connecting = false; }
+    });
+    disconnectButton.addEventListener("click", () => { void stop(activeSession, "Disconnected."); });
+    window.addEventListener("unload", () => {
+      void stop(activeSession, "Disconnected.");
+    });
+  }());
+  </script>
+</body>
+</html>

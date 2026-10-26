@@ -5,12 +5,14 @@ the default branch; it does not distribute or release the adapter.
 
 ## Source and setup
 
-The actual default branch is `main`. The adapter implementation is in
-[draft PR #1](https://github.com/dcc-mcp/dcc-mcp-figma/pull/1), not in the default
-branch. The reviewed implementation snapshot is
+The actual default branch is `main`.
+[Adapter PR #1](https://github.com/dcc-mcp/dcc-mcp-figma/pull/1) was merged on
+2026-10-26 as [`854d00e93a434e914de007951efb62450e5ea7ca`](https://github.com/dcc-mcp/dcc-mcp-figma/commit/854d00e93a434e914de007951efb62450e5ea7ca).
+That merge's source tree is identical to the reviewed implementation snapshot
 [`b7d1dc108bd0f334754aa00af8ebbd6b6e65af81`](https://github.com/dcc-mcp/dcc-mcp-figma/tree/b7d1dc108bd0f334754aa00af8ebbd6b6e65af81).
-Check the PR's current head before reproducing results; the evidence below is
-bound to that snapshot, not to future commits.
+The evidence below is bound to that snapshot, not to future commits. The source
+merge is a repository event; it does not establish installation, native
+acceptance, a first release or showcase readiness.
 
 Read the pinned
 [local plugin installation guide](https://github.com/dcc-mcp/dcc-mcp-figma/blob/b7d1dc108bd0f334754aa00af8ebbd6b6e65af81/docs/LOCAL_PLUGIN_INSTALLATION.md)
@@ -19,7 +21,7 @@ An offline artwork ZIP is not an installable plugin or native `.fig` document.
 The generated plugin kit needs a real Figma-assigned development-plugin ID;
 the checked-in template cannot be imported unchanged. Preparing the kit does
 not import, install, start or pair it. No released package or installation-ready
-managed Runtime bundle is supplied by this default branch.
+managed Runtime bundle is supplied by this repository.
 
 The selected route is a local development plugin using the official JavaScript
 Plugin API, with an external Python adapter. Figma has no embedded Python for
@@ -82,5 +84,5 @@ identity, approved pairing and actual same-file save/reopen/export evidence.
 Desktop access denial or missing scope must stop the affected operation; it
 does not justify another identity, provider, permission or interpreter route.
 
-Documentation may be reviewed and merged on its own scope. The adapter merge,
-first release and showcase submission retain their native and publication gates.
+Documentation may be reviewed and merged on its own scope. The source merge does
+not waive any native, release or showcase acceptance requirement.
